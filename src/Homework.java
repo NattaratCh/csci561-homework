@@ -1,10 +1,77 @@
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class Homework {
     public static void main(String[] args) {
         Solution solution = new Solution();
-        solution.solve();
+        solution.solve("./test-cases/custom/input4.txt");
+        //test();
+    }
+
+    private static void test() {
+        for(int i=1; i<=50; i++) {
+            File dest = new File("./src/input.txt");
+            if (dest.exists()) {
+                dest.delete();
+            }
+
+            File src = new File("./test-cases/input" + i + ".txt");
+            try {
+                Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                System.out.println("Error while copy file");
+                e.printStackTrace();
+            }
+
+            Solution solution = new Solution();
+            solution.solve("./src/input.txt");
+            //compareOutput(i);
+        }
+    }
+
+    private static void compareOutput(int caseNumber) {
+        String outputFileName = "./test-cases/output" + caseNumber + ".txt";
+        try {
+            BufferedReader expectOutputReader = new BufferedReader(new FileReader(outputFileName));
+            BufferedReader myOutputReader = new BufferedReader(new FileReader("./src/output.txt"));
+            String expectLine = expectOutputReader.readLine();
+            String myLine = myOutputReader.readLine();
+            boolean success = true;
+            int line = 1;
+            while (expectLine != null && myLine != null) {
+                expectLine = expectLine.trim();
+                myLine = myLine.trim();
+
+                if (expectLine.length() != myLine.length()) {
+                    System.out.println("Incorrect case: " + line);
+                    System.out.println("Expected: " + expectLine);
+                    System.out.println("Expected Length: " + expectLine.length());
+                    System.out.println("Output: " + myLine);
+                    System.out.println("Output Length: " + myLine.length());
+                    success = false;
+                }
+                expectLine = expectOutputReader.readLine();
+                myLine = myOutputReader.readLine();
+                line++;
+            }
+
+            expectOutputReader.close();
+            myOutputReader.close();
+
+            System.out.println("###########################################");
+            if (success) {
+                System.out.println("#### Case " + caseNumber + " PASSED");
+            } else {
+                System.out.println("#### Case " + caseNumber + " FAILED");
+            }
+            System.out.println("###########################################");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
 
@@ -13,10 +80,10 @@ class Solution {
 
     public Solution() {}
 
-    public void solve() {
+    public void solve(String input) {
         SearchModel model = null;
         try {
-             model = getInput();
+             model = getInput(input);
             System.out.println(model.getMethod());
         } catch (Exception e) {
             e.printStackTrace();
@@ -71,12 +138,13 @@ class Solution {
         while(!queue.isEmpty()) {
             Node currentNode = queue.poll();
             Integer[] pos = currentNode.getPosition(); // get last position
-            System.out.println("current position: " + pos[0] + " " + pos[1]);
+            //System.out.println("current position: " + pos[0] + " " + pos[1]);
             if (visited.contains(pos[0] + "_" + pos[1])) continue;
             visited.add(pos[0] + "_" + pos[1]);
 
             //System.out.println("current position: " + pos[0] + " " + pos[1]);
             if (pos[0] == goal[0] && pos[1] == goal[1]) {
+                System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -106,7 +174,7 @@ class Solution {
         while (!pq.isEmpty()) {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
-            System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
+            //System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
             if (currentPos[0] == goal[0] && currentPos[1] == goal[1]) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
@@ -162,7 +230,7 @@ class Solution {
         while (!pq.isEmpty()) {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
-            System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
+            //System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
             if (currentPos[0] == goal[0] && currentPos[1] == goal[1]) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
@@ -216,18 +284,19 @@ class Solution {
             Integer[] newPos = new Integer[]{ newX, newY};
             children.add(new Node(currentNode, newPos, currentNode.getPathCost() +
                     getAStartUnitPathCost(currentNode.getPosition(), newPos, map) +
-                    heuristic(currentNode.getPosition(), goal, map)));
+                    heuristic(newPos, goal, map)));
         }
         return children;
     }
 
-    public int heuristic(Integer[] currentPos, Integer[] goal, Integer[][] map) {
-        int dx = Math.abs(currentPos[0] - goal[0]);
-        int dy = Math.abs(currentPos[1] - goal[1]);
-        int muddy = Math.max(0, map[currentPos[1]][currentPos[0]]);
-        int height = Math.min(0, map[currentPos[1]][currentPos[0]]);
+    public int heuristic(Integer[] pos, Integer[] goal, Integer[][] map) {
+        int dx = Math.abs(pos[0] - goal[0]);
+        int dy = Math.abs(pos[1] - goal[1]);
+        int muddy = Math.max(0, map[pos[1]][pos[0]]);
+        int height = Math.min(0, map[pos[1]][pos[0]]);
+        int goalHeight = Math.min(0, map[goal[1]][goal[0]]);
 
-        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) - muddy - height;
+        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + muddy + Math.abs(height - goalHeight);
     }
 
     /******************************
@@ -271,9 +340,9 @@ class Solution {
         return Math.abs(currentCellHeight - nextCellHeight) <= maxRockHeight;
     }
 
-    public SearchModel getInput() throws Exception {
+    public SearchModel getInput(String filename) throws Exception {
         // TODO edit file path
-        File file = new File("./src/input.txt");
+        File file = new File(filename);
         BufferedReader reader;
         try {
             reader = new BufferedReader(new FileReader(file));
@@ -334,7 +403,7 @@ class Solution {
                     int h = mapSize[1];
                     map = new Integer[h][w];
                     for(int y=0; y<h; y++) {
-                        System.out.println(line);
+                        //System.out.println(line);
                         int[] temp = Arrays.stream(line.split("\\s+")).mapToInt(Integer::parseInt).toArray();
                         for(int x=0; x<w; x++) {
                             map[y][x] = temp[x];
