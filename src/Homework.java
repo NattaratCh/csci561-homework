@@ -6,7 +6,11 @@ import java.util.*;
 public class Homework {
     public static void main(String[] args) {
         Solution solution = new Solution();
+        long start = System.nanoTime();
         solution.solve("./test-cases/custom/input6.txt");
+        long end = System.nanoTime();
+        long durationInMilliseconds = (end - start) / 1000000;
+        System.out.println("Time executed in seconds: " + (durationInMilliseconds/1000));
         //test();
 //        solution.solve("input.txt");
     }
@@ -94,7 +98,7 @@ public class Homework {
             String[] currentPosStr = positions[i].split(",");
             Integer[] currentPos = new Integer[]{ Integer.valueOf(currentPosStr[0]), Integer.valueOf(currentPosStr[1])};
 
-            if (method == SearchMethod.ASTAR) {
+            if (SearchMethod.ASTAR.equals(method)) {
                 cost += getAStartUnitPathCost(lastPos, currentPos, map) + heuristic(currentPos, goal, map);
             } else {
                 cost += getUnitPathCost(method, lastPos, currentPos);
@@ -208,12 +212,12 @@ class Solution {
         while(!queue.isEmpty()) {
             Node currentNode = queue.poll();
             Integer[] pos = currentNode.getPosition(); // get last position
-            //System.out.println("current position: " + pos[0] + " " + pos[1]);
             if (visited.contains(pos[0] + "_" + pos[1])) continue;
             visited.add(pos[0] + "_" + pos[1]);
 
             //System.out.println("current position: " + pos[0] + " " + pos[1]);
-            if (pos[0] == goal[0] && pos[1] == goal[1]) {
+            if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
+                System.out.println("current position: " + pos[0] + " " + pos[1]);
                 System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
@@ -223,6 +227,7 @@ class Solution {
                 queue.add(child);
             }
         }
+
         return null;
     }
 
@@ -245,7 +250,7 @@ class Solution {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
             //System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
-            if (currentPos[0] == goal[0] && currentPos[1] == goal[1]) {
+            if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
@@ -300,8 +305,8 @@ class Solution {
         while (!pq.isEmpty()) {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
-            // System.out.println("#### current position: " + currentPos[0] + " " + currentPos[1] + " Cost: " + currentNode.getPathCost());
-            if (currentPos[0] == goal[0] && currentPos[1] == goal[1]) {
+            //System.out.println("#### current position: " + currentPos[0] + " " + currentPos[1] + " Cost: " + currentNode.getPathCost());
+            if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
@@ -578,7 +583,7 @@ class Node {
         if (!(o instanceof Node)) return false;
 
         Node node = (Node) o;
-        return node.position[0] == this.position[0] && node.position[1] == this.position[1];
+        return node.position[0].equals(this.position[0]) && node.position[1].equals(this.position[1]);
     }
 }
 
