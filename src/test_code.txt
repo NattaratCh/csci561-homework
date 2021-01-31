@@ -5,9 +5,9 @@ import java.util.*;
 
 public class Homework {
     public static void main(String[] args) {
-        Solution solution = new Solution();
-        solution.solve("./test-cases/custom/input6.txt");
-        //test();
+//        Solution solution = new Solution();
+//        solution.solve("./test-cases/custom/input6.txt");
+        test();
 //        solution.solve("input.txt");
     }
 
@@ -33,7 +33,7 @@ public class Homework {
 
             Solution solution = new Solution();
             solution.solve("./src/input.txt");
-            //compareOutput(i, solution.searchMethod, solution.searchMap);
+            compareOutput(i, solution.searchMethod, solution.searchMap);
         }
     }
 
@@ -340,7 +340,8 @@ class Solution {
         int nextMuddyLevel = Math.max(map[nextPos[1]][nextPos[0]], 0);
         int currentHeight = Math.min(map[currentPos[1]][currentPos[0]], 0);
         int nextHeight = Math.min(map[nextPos[1]][nextPos[0]], 0);
-        return ucsPathCost + nextMuddyLevel + Math.abs(currentHeight - nextHeight);
+        return ucsPathCost + Math.abs(map[currentPos[1]][currentPos[0]]-map[nextPos[1]][nextPos[0]]);
+        //return ucsPathCost + nextMuddyLevel + Math.abs(currentHeight - nextHeight);
     }
 
     public List<Node> expandAStarChildren(Node currentNode, Integer width, Integer height, Integer[][] map, int maxRockHeight, Integer[] goal) {
@@ -366,7 +367,9 @@ class Solution {
         int muddy = Math.max(0, map[pos[1]][pos[0]]);
         int height = Math.min(0, map[pos[1]][pos[0]]);
         int goalHeight = Math.min(0, map[goal[1]][goal[0]]);
-        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + muddy + Math.abs(height - goalHeight);
+
+        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + Math.abs(map[pos[1]][pos[0]] - map[goal[1]][goal[0]]);
+        //return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + muddy + Math.abs(height - goalHeight);
     }
 
     /******************************
@@ -413,12 +416,15 @@ class Solution {
     }
 
     public boolean passSteepCondition(Integer currentCellHeight, Integer nextCellHeight, Integer maxRockHeight) {
-        currentCellHeight = Math.min(currentCellHeight, 0);
-        nextCellHeight = Math.min(nextCellHeight, 0);
         return Math.abs(currentCellHeight - nextCellHeight) <= maxRockHeight;
+
+//        currentCellHeight = Math.min(currentCellHeight, 0);
+//        nextCellHeight = Math.min(nextCellHeight, 0);
+//        return Math.abs(currentCellHeight - nextCellHeight) <= maxRockHeight;
     }
 
     public SearchModel getInput(String filename) throws Exception {
+        // TODO edit file path
         File file = new File(filename);
         BufferedReader reader;
         try {
@@ -529,10 +535,10 @@ class Solution {
 
         StringBuilder sb = new StringBuilder();
         for(Integer[] p: path) {
-            System.out.print(p[0]+ "," + p[1] + " ");
+            //System.out.print(p[0]+ "," + p[1] + " ");
             sb.append(p[0]+ "," + p[1] + " ");
         }
-        System.out.println();
+        //System.out.println();
         return sb.toString().trim();
     }
 }
