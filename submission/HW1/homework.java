@@ -1,185 +1,25 @@
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 
-public class Homework {
+public class homework {
+
     public static void main(String[] args) {
         Solution solution = new Solution();
-        long start = System.nanoTime();
-        solution.solve("./src/input.txt");
-        long end = System.nanoTime();
-        long durationInMilliseconds = (end - start) / 1000000;
-        System.out.println("Time executed in seconds: " + (durationInMilliseconds/1000));
-    }
-
-    /******************************
-     * Submission *
-     *******************************/
-//    public static void main(String[] args) {
-//        Solution solution = new Solution();
-//        solution.solve("input.txt");
-//    }
-
-    /******************************
-     * For testing *
-     *******************************/
-//    public static void main(String[] args) {
-//        test()
-//    }
-
-    /***
-     *  Testing code
-     */
-
-    private static void test() {
-        for(int i=1; i<=50; i++) {
-            File dest = new File("./src/input.txt");
-            if (dest.exists()) {
-                dest.delete();
-            }
-
-            File src = new File("./test-cases/input" + i + ".txt");
-            try {
-                Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                System.out.println("Error while copy file");
-                e.printStackTrace();
-            }
-
-            Solution solution = new Solution();
-            solution.solve("./src/input.txt");
-            try {
-                compareOutput(i, solution.searchModel);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private static void compareOutput(int caseNumber, SearchModel input) throws Exception {
-        String outputFileName = "./test-cases/output" + caseNumber + ".txt";
-        try {
-            BufferedReader expectOutputReader = new BufferedReader(new FileReader(outputFileName));
-            BufferedReader myOutputReader = new BufferedReader(new FileReader("./src/output.txt"));
-            String expectLine = expectOutputReader.readLine();
-            String myLine = myOutputReader.readLine();
-
-            boolean success = true;
-            int line = 1;
-            while (expectLine != null && myLine != null) {
-                expectLine = expectLine.trim();
-                myLine = myLine.trim();
-
-                //if (expectLine.split("\\s").length != myLine.split("\\s").length) {
-                    Integer[] goal = input.getSettlingsPosition()[line-1];
-                    System.out.println("#######################");
-                    System.out.println("Incorrect case: " + line);
-                    System.out.println("Expected: " + expectLine);
-                    Integer expectedCost = calculateOutputCost(expectLine, input.getMethod(), input.getMap(), goal);
-                    System.out.println("Output: " + myLine);
-                    Integer myCost = calculateOutputCost(myLine, input.getMethod(), input.getMap(), goal);
-                    if ((myCost != null && expectedCost != null && myCost <= expectedCost) || (myCost == null && expectedCost == null)) {
-                        System.out.println("My cost is lower or equal ");
-                        success = true;
-                    } else {
-                        success = false;
-                    }
-                    System.out.println("#######################");
-                //}
-                expectLine = expectOutputReader.readLine();
-                myLine = myOutputReader.readLine();
-                line++;
-            }
-
-            expectOutputReader.close();
-            myOutputReader.close();
-
-            System.out.println("###########################################");
-            if (success) {
-                System.out.println("#### Case " + caseNumber + " PASSED");
-            } else {
-                System.out.println("#### Case " + caseNumber + " FAILED");
-            }
-            System.out.println("###########################################");
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static Integer calculateOutputCost(String line, SearchMethod method, Integer[][] map, Integer[] goal) {
-        line = line.trim();
-        if (line.equalsIgnoreCase("FAIL")) return null;
-        String[] positions = line.split("\\s");
-        Integer cost = 0;
-        String[] lastPosStr = positions[0].split(",");
-        Integer[] lastPos = new Integer[]{ Integer.valueOf(lastPosStr[0]), Integer.valueOf(lastPosStr[1])};
-        for(int i=1; i<positions.length; i++) {
-            String[] currentPosStr = positions[i].split(",");
-            Integer[] currentPos = new Integer[]{ Integer.valueOf(currentPosStr[0]), Integer.valueOf(currentPosStr[1])};
-
-            if (SearchMethod.ASTAR.equals(method)) {
-                cost += getAStartUnitPathCost(lastPos, currentPos, map) + heuristic(currentPos, goal, map);
-            } else {
-                cost += getUnitPathCost(method, lastPos, currentPos);
-            }
-
-            lastPos = currentPos;
-        }
-
-        System.out.println("Cost: " + cost);
-        return cost;
-    }
-
-    public static int getUnitPathCost(SearchMethod method, Integer[] currentPos, Integer[] nextPos) {
-        if (SearchMethod.BFS.equals(method)) return 1;
-        int diffX = Math.abs(currentPos[0] - nextPos[0]);
-        int diffY = Math.abs(currentPos[1] - nextPos[1]);
-        if (diffX != 0 && diffY != 0) {
-            //diagonal move
-            return 14;
-        } else if ((diffX != 0 && diffY == 0) || (diffX == 0 && diffY !=0)) {
-            // vertical or horizontal move
-            return 10;
-        } else {
-            return 0;
-        }
-    }
-
-    public static int getAStartUnitPathCost(Integer[] currentPos, Integer[] nextPos, Integer[][] map) {
-        int ucsPathCost = getUnitPathCost(SearchMethod.UCS, currentPos, nextPos);
-        int nextMuddyLevel = Math.max(map[nextPos[1]][nextPos[0]], 0);
-        int currentHeight = Math.min(map[currentPos[1]][currentPos[0]], 0);
-        int nextHeight = Math.min(map[nextPos[1]][nextPos[0]], 0);
-        return ucsPathCost + Math.abs(map[currentPos[1]][currentPos[0]]-map[nextPos[1]][nextPos[0]]);
-        //return ucsPathCost + nextMuddyLevel + Math.abs(currentHeight - nextHeight);
-    }
-
-    public static int heuristic(Integer[] pos, Integer[] goal, Integer[][] map) {
-        int dx = Math.abs(pos[0] - goal[0]);
-        int dy = Math.abs(pos[1] - goal[1]);
-        int muddy = Math.max(0, map[pos[1]][pos[0]]);
-        int height = Math.min(0, map[pos[1]][pos[0]]);
-        int goalHeight = Math.min(0, map[goal[1]][goal[0]]);
-
-        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + Math.abs(map[pos[1]][pos[0]] - map[goal[1]][goal[0]]);
-        //return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + muddy + Math.abs(height - goalHeight);
+        solution.solve("input.txt");
     }
 }
 
 class Solution {
     private int[][] directions = { {0,-1}, {1,-1}, {1,0}, {1,1}, {0,1}, {-1,1}, {-1,0}, {-1,-1}};
-    public SearchModel searchModel;
+    public SearchMethod searchMethod;
+    public Integer[][] searchMap;
 
     public Solution() {}
 
     public void solve(String input) {
         SearchModel model = null;
         try {
-             model = getInput(input);
-            System.out.println(model.getMethod());
+            model = getInput(input);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -188,7 +28,6 @@ class Solution {
             int n = model.getNumberOfSettlings();
             String[] results = new String[n];
             for (int i=0; i<n; i++) {
-                System.out.println("Test case #" + (i+1));
                 switch (model.getMethod()) {
                     case BFS:
                         List<Integer[]> path = bfs(model.getMap(), model.getStartPosition(), model.getSettlingsPosition()[i], model.getMaxRockHeight());
@@ -222,7 +61,6 @@ class Solution {
     public List<Integer[]> bfs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
 
-        System.out.println("goal position: " + goal[0] + " " + goal[1]);
         Queue<Node> queue = new LinkedList<>(); // keep paths
         Integer width = map[0].length;
         Integer height = map.length;
@@ -237,10 +75,7 @@ class Solution {
             if (visited.contains(pos[0] + "_" + pos[1])) continue;
             visited.add(pos[0] + "_" + pos[1]);
 
-            //System.out.println("current position: " + pos[0] + " " + pos[1]);
             if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
-                System.out.println("current position: " + pos[0] + " " + pos[1]);
-                System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -256,7 +91,6 @@ class Solution {
     public List<Integer[]> ucs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
 
-        System.out.println("goal position: " + goal[0] + " " + goal[1]);
         PriorityQueue<Node> pq = new PriorityQueue(new NodeComparator());
         Node startNode = new Node(null, startPosition, 0);
         pq.add(startNode);
@@ -271,9 +105,7 @@ class Solution {
         while (!pq.isEmpty()) {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
-            //System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
             if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
-                System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -312,7 +144,6 @@ class Solution {
     public List<Integer[]> astar(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
 
-        System.out.println("goal position: " + goal[0] + " " + goal[1]);
         PriorityQueue<Node> pq = new PriorityQueue(new NodeComparator());
         Node startNode = new Node(null, startPosition, 0);
         pq.add(startNode);
@@ -327,15 +158,12 @@ class Solution {
         while (!pq.isEmpty()) {
             Node currentNode = pq.poll();
             Integer[] currentPos = currentNode.getPosition();
-            //System.out.println("#### current position: " + currentPos[0] + " " + currentPos[1] + " Cost: " + currentNode.getPathCost());
             if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
-                System.out.println("Total cost: " + currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
             List<Node> children = expandAStarChildren(currentNode, width, height, map, maxRockHeight, goal);
             for(Node child: children) {
-                //System.out.println("child position: " + child.getPosition()[0] + " " + child.getPosition()[1] + " Cost: " + child.getPathCost());
                 String childKey = child.getPosition()[0] + "_" + child.getPosition()[1];
                 if (!openNodeMap.containsKey(childKey) && !visited.containsKey(childKey)) {
                     pq.add(child);
@@ -368,15 +196,6 @@ class Solution {
         int currentHeight = Math.min(map[currentPos[1]][currentPos[0]], 0);
         int nextHeight = Math.min(map[nextPos[1]][nextPos[0]], 0);
         return ucsPathCost + nextMuddyLevel + Math.abs(currentHeight - nextHeight);
-
-        /******************************
-         * For testing
-         *******************************/
-//        int ucsPathCost = getUnitPathCost(SearchMethod.UCS, currentPos, nextPos);
-//        int currentHeight = map[currentPos[1]][currentPos[0]];
-//        int nextHeight = map[nextPos[1]][nextPos[0]];
-//        return ucsPathCost + Math.abs(currentHeight - nextHeight);
-
     }
 
     public List<Node> expandAStarChildren(Node currentNode, Integer width, Integer height, Integer[][] map, int maxRockHeight, Integer[] goal) {
@@ -403,15 +222,6 @@ class Solution {
         int height = Math.min(0, map[pos[1]][pos[0]]);
         int goalHeight = Math.min(0, map[goal[1]][goal[0]]);
         return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + muddy + Math.abs(height - goalHeight);
-
-        /******************************
-         * For testing
-         *******************************/
-//        int dx = Math.abs(pos[0] - goal[0]);
-//        int dy = Math.abs(pos[1] - goal[1]);
-//        int height = map[pos[1]][pos[0]];
-//        int goalHeight = map[goal[1]][goal[0]];
-//        return 10 * (dx+dy) + (14 - 2*10) * Math.min(dx, dy) + Math.abs(height - goalHeight);
     }
 
     /******************************
@@ -461,12 +271,6 @@ class Solution {
         currentCellHeight = Math.min(currentCellHeight, 0);
         nextCellHeight = Math.min(nextCellHeight, 0);
         return Math.abs(currentCellHeight - nextCellHeight) <= maxRockHeight;
-
-
-        /******************************
-         * For testing
-         *******************************/
-//        return Math.abs(currentCellHeight - nextCellHeight) <= maxRockHeight;
     }
 
     public SearchModel getInput(String filename) throws Exception {
@@ -489,6 +293,7 @@ class Solution {
                 if (lineNumber == 1) {
                     // line 1 - search method
                     method = SearchMethod.getSearchMethod(line.toUpperCase());
+                    searchMethod = method;
                     lineNumber++;
                     line = reader.readLine();
                 } else if (lineNumber == 2) {
@@ -531,7 +336,6 @@ class Solution {
                     int h = mapSize[1];
                     map = new Integer[h][w];
                     for(int y=0; y<h; y++) {
-                        //System.out.println(line);
                         int[] temp = Arrays.stream(line.split("\\s+")).mapToInt(Integer::parseInt).toArray();
                         for(int x=0; x<w; x++) {
                             map[y][x] = temp[x];
@@ -539,12 +343,12 @@ class Solution {
                         line = reader.readLine();
                         if (line != null) line = line.trim();
                     }
+                    searchMap = map;
                 }
             }
             reader.close();
 
             SearchModel model = new SearchModel(method, mapSize[0], mapSize[1], startPosition, maxRockHeight, numberOfSettlingSites, settlingPosition, map);
-            searchModel = model;
             return model;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -560,8 +364,7 @@ class Solution {
 
     public void writeOutput(String[] results) {
         try {
-            // TODO change output path
-            FileWriter writer = new FileWriter("./src/output.txt");
+            FileWriter writer = new FileWriter("output.txt");
             for(String line: results) {
                 writer.write(line + System.lineSeparator());
             }
@@ -573,16 +376,13 @@ class Solution {
 
     public String getResult(List<Integer[]> path) {
         if (path == null) {
-            System.out.println("FAIL");
             return "FAIL";
         }
 
         StringBuilder sb = new StringBuilder();
         for(Integer[] p: path) {
-            System.out.print(p[0]+ "," + p[1] + " ");
             sb.append(p[0]+ "," + p[1] + " ");
         }
-        System.out.println();
         return sb.toString().trim();
     }
 }
