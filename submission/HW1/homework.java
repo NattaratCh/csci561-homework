@@ -57,7 +57,6 @@ class Solution {
     /******************************
      * Search functions *
      *******************************/
-
     public List<Integer[]> bfs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
 
@@ -65,23 +64,31 @@ class Solution {
         Integer width = map[0].length;
         Integer height = map.length;
         Set<String> visited = new HashSet<>();
+        Set<String> open = new HashSet<>();
 
         Node startNode = new Node(null, startPosition, 0);
+        if (startNode.getPosition()[0].equals(goal[0]) && startNode.getPosition()[1].equals(goal[1])) {
+            return getPath(startNode);
+        }
+
         queue.add(startNode);
 
         while(!queue.isEmpty()) {
             Node currentNode = queue.poll();
             Integer[] pos = currentNode.getPosition(); // get last position
-            if (visited.contains(pos[0] + "_" + pos[1])) continue;
             visited.add(pos[0] + "_" + pos[1]);
-
-            if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
-                return getPath(currentNode);
-            }
 
             List<Node> children = expandChildren(currentNode, width, height, map, maxRockHeight, SearchMethod.BFS);
             for(Node child: children) {
-                queue.add(child);
+                String key = child.getPosition()[0] + "_" + child.getPosition()[1];
+                if (!visited.contains(key) && !open.contains(key)) {
+                    if (child.getPosition()[0].equals(goal[0]) && child.getPosition()[1].equals(goal[1])) {
+                        return getPath(child);
+                    }
+                    queue.add(child);
+                    open.add(key);
+                }
+
             }
         }
 

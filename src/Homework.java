@@ -25,7 +25,7 @@ public class Homework {
      * For testing *
      *******************************/
 //    public static void main(String[] args) {
-//        test()
+//        test();
 //    }
 
     /***
@@ -79,6 +79,9 @@ public class Homework {
                     Integer expectedCost = calculateOutputCost(expectLine, input.getMethod(), input.getMap(), goal);
                     System.out.println("Output: " + myLine);
                     Integer myCost = calculateOutputCost(myLine, input.getMethod(), input.getMap(), goal);
+                    if (input.getMethod().equals(SearchMethod.BFS)) {
+                        System.out.println("BFS compare: " + (expectedCost == myCost));
+                    }
                     if ((myCost != null && expectedCost != null && myCost <= expectedCost) || (myCost == null && expectedCost == null)) {
                         System.out.println("My cost is lower or equal ");
                         success = true;
@@ -227,31 +230,73 @@ class Solution {
         Integer width = map[0].length;
         Integer height = map.length;
         Set<String> visited = new HashSet<>();
+        Set<String> open = new HashSet<>();
 
         Node startNode = new Node(null, startPosition, 0);
+        if (startNode.getPosition()[0].equals(goal[0]) && startNode.getPosition()[1].equals(goal[1])) {
+            return getPath(startNode);
+        }
+
         queue.add(startNode);
 
         while(!queue.isEmpty()) {
             Node currentNode = queue.poll();
             Integer[] pos = currentNode.getPosition(); // get last position
-            if (visited.contains(pos[0] + "_" + pos[1])) continue;
             visited.add(pos[0] + "_" + pos[1]);
-
             //System.out.println("current position: " + pos[0] + " " + pos[1]);
-            if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
-                System.out.println("current position: " + pos[0] + " " + pos[1]);
-                System.out.println("Total cost: " + currentNode.getPathCost());
-                return getPath(currentNode);
-            }
 
             List<Node> children = expandChildren(currentNode, width, height, map, maxRockHeight, SearchMethod.BFS);
             for(Node child: children) {
-                queue.add(child);
+                String key = child.getPosition()[0] + "_" + child.getPosition()[1];
+                if (!visited.contains(key) && !open.contains(key)) {
+                    if (child.getPosition()[0].equals(goal[0]) && child.getPosition()[1].equals(goal[1])) {
+                        System.out.println("current position: " + child.getPosition()[0] + " " + child.getPosition()[1]);
+                        System.out.println("Total cost: " + child.getPathCost());
+                        return getPath(child);
+                    }
+                    queue.add(child);
+                    open.add(key);
+                }
+
             }
         }
 
         return null;
     }
+
+//    public List<Integer[]> bfs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
+//        if (map.length == 0 || map[0].length == 0) return null;
+//
+//        System.out.println("goal position: " + goal[0] + " " + goal[1]);
+//        Queue<Node> queue = new LinkedList<>(); // keep paths
+//        Integer width = map[0].length;
+//        Integer height = map.length;
+//        Set<String> visited = new HashSet<>();
+//
+//        Node startNode = new Node(null, startPosition, 0);
+//        queue.add(startNode);
+//
+//        while(!queue.isEmpty()) {
+//            Node currentNode = queue.poll();
+//            Integer[] pos = currentNode.getPosition(); // get last position
+//            if (visited.contains(pos[0] + "_" + pos[1])) continue;
+//            visited.add(pos[0] + "_" + pos[1]);
+//            System.out.println("current position: " + pos[0] + " " + pos[1]);
+//
+//            if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
+//                System.out.println("current position: " + pos[0] + " " + pos[1]);
+//                System.out.println("Total cost: " + currentNode.getPathCost());
+//                return getPath(currentNode);
+//            }
+//
+//            List<Node> children = expandChildren(currentNode, width, height, map, maxRockHeight, SearchMethod.BFS);
+//            for(Node child: children) {
+//                queue.add(child);
+//            }
+//        }
+//
+//        return null;
+//    }
 
     public List<Integer[]> ucs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
