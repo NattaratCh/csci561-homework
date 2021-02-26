@@ -9,7 +9,7 @@ import java.util.*;
 
 public class Homework {
     public static void main(String[] args) {
-        CheckerGame checkerGame = new CheckerGame();
+        CheckerGame checkerGame = new CheckerGame(5);
         checkerGame.start();
     }
 
@@ -17,9 +17,14 @@ public class Homework {
 
 class CheckerGame {
     private GameState gameState;
+    private String[] bestMove;
+    private Integer depth;
+    private Integer depthLimit;
 
-    public CheckerGame() {
+    public CheckerGame(Integer depthLimit) {
         this.gameState = readInput("./test-cases/input.txt");
+        this.depthLimit = depthLimit;
+        this.depth = 0;
     }
 
     public void start() {
@@ -54,6 +59,7 @@ class CheckerGame {
             }
 
             GameState gameState = new GameState(board, player, mode, timeRemaining);
+            System.out.println(gameState.getBoard().length + " " + gameState.getBoard()[0].length );
             return gameState;
         } catch (Exception e) {
             System.out.println("readInput: " + e.getMessage());
@@ -62,21 +68,78 @@ class CheckerGame {
     }
 
     public void nextMove() {
-        alphaBetaPruning();
+        minimax();
     }
 
-    public void alphaBetaPruning() {
-        // return moves
+    public void minimax() {
+        Integer value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE);
+        System.out.println("Best move: from" + bestMove[0] + " to " + bestMove[1]);
+        System.out.println("value: " + value);
     }
 
     // Player
-    public void maxValue() {
+    public Integer maxValue(GameState state, Integer alpha, Integer beta) {
+        if (state.isTerminal()) {
+            return state.utility();
+        }
 
+        if (depth == depthLimit) {
+            return state.evaluation();
+        }
+
+        Integer value = Integer.MIN_VALUE;
+        Integer next = null;
+        depth += 1;
+        List<String[]> possibleMoves = state.getAllPossibleMoves(true);
+        for (String[] move: possibleMoves) {
+            String[] captured = state.applyMove(move);
+            if (state.canOpponentContinue()) {
+                next = minValue(state, alpha, beta);
+            } else {
+                next = maxValue(state, alpha, beta);
+            }
+
+            System.out.println("maxValue value: " + value);
+
+            if (next > value) {
+                value = next;
+                if (depth == depthLimit) bestMove = move;
+            }
+            state.resetMove(move, captured);
+
+            if (value >= beta) return value;
+            alpha = Math.max(alpha, value);
+        }
+        return value;
     }
 
     // Opponent
-    public void minValue() {
+    public Integer minValue(GameState state, Integer alpha, Integer beta) {
+        if (state.isTerminal()) {
+            return state.utility();
+        }
 
+        if (depth == depthLimit) {
+            return state.evaluation();
+        }
+
+        Integer value = Integer.MAX_VALUE;
+        depth += 1;
+        List<String[]> possibleMoves = state.getAllPossibleMoves(false);
+        for (String[] move: possibleMoves) {
+            String[] captured = state.applyMove(move);
+            if (state.canPlayerContinue()) {
+                value = Math.min(value, maxValue(state, alpha, beta));
+            } else {
+                value = Math.min(value, minValue(state, alpha, beta));
+            }
+            System.out.println("minValue value: " + value);
+            state.resetMove(move, captured);
+
+            if (value <= alpha) return alpha;
+            beta = Math.min(beta, value);
+        }
+        return value;
     }
 }
 
@@ -85,10 +148,10 @@ class GameState {
     private Player player;
     private Mode mode;
     private float timeRemaining;
-    private List<String> playerManPosition;
-    private List<String> playerKingPosition;
-    private List<String> opponentManPosition;
-    private List<String> opponentKingPosition;
+    private Set<String> playerManPosition;
+    private Set<String> playerKingPosition;
+    private Set<String> opponentManPosition;
+    private Set<String> opponentKingPosition;
 
 
     public GameState(String[][] board, Player player, Mode mode, float timeRemaining) {
@@ -96,10 +159,10 @@ class GameState {
         this.player = player;
         this.mode = mode;
         this.timeRemaining = timeRemaining;
-        playerManPosition = new ArrayList<>();
-        playerKingPosition = new ArrayList<>();
-        opponentManPosition = new ArrayList<>();
-        opponentKingPosition = new ArrayList<>();
+        playerManPosition = new HashSet<>();
+        playerKingPosition = new HashSet<>();
+        opponentManPosition = new HashSet<>();
+        opponentKingPosition = new HashSet<>();
         setupPosition();
     }
 
@@ -123,28 +186,30 @@ class GameState {
         }
     }
 
-    private List<String> getAllPossibleMoves() {
+    public List<String[]> getAllPossibleMoves(boolean playerTurn) {
+        System.out.println("getAllPossibleMoves playerTurn: " + playerTurn);
         int[][] regularDirs;
         int[][] captureDirs;
-        int[][] kingRegularDirs;
-        int[][] kingCaptureDirs;
-        if (Player.WHITE.equals(player)) {
+        int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
+        int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
+        Set<String> manCheckerPosition = playerTurn ? playerManPosition : opponentManPosition;
+        Set<String> kingCheckerPosition = playerTurn ? playerKingPosition : opponentKingPosition;
+
+        Player currentPlayer = playerTurn ? player : (Player.WHITE.equals(player) ? Player.BLACK : Player.WHITE);
+
+        if (Player.WHITE.equals(currentPlayer)) {
             regularDirs = new int[][]{{1, -1}, {-1, -1}};
             captureDirs = new int[][]{{2, -2}, {-2, -2}};
-            kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};
-            kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
         } else {
             regularDirs = new int[][]{{1, 1}, {-1, 1}};
             captureDirs = new int[][]{{2, 2}, {-2, 2}};
-            kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};
-            kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
         }
 
-        List<String> regularMoves = new ArrayList<>();
-        List<String> captureMoves = new ArrayList<>();
+        List<String[]> regularMoves = new ArrayList<>();
+        List<String[]> captureMoves = new ArrayList<>();
 
         // Get all possible moves of man checkers
-        for(String checker: playerManPosition) {
+        for(String checker: manCheckerPosition) {
             int[] currentPostion = Utility.getPosition(checker);
             int currentRow = currentPostion[0];
             int currentCol = currentPostion[1];
@@ -152,22 +217,22 @@ class GameState {
             for(int[] dir: regularDirs) {
                 int row = currentRow + dir[1];
                 int col = currentCol + dir[0];
-                if (isValidMove(currentRow, currentCol, row, col)) {
-                    regularMoves.add(Utility.getLabel(row, col));
+                if (isValidMove(currentRow, currentCol, row, col, playerTurn)) {
+                    regularMoves.add(new String[] {checker, Utility.getLabel(row, col)});
                 }
             }
 
             for(int[] dir: captureDirs) {
                 int row = currentRow + dir[1];
                 int col = currentCol + dir[0];
-                if (isValidMove(currentRow, currentCol, row, col)) {
-                    captureMoves.add(Utility.getLabel(row, col));
+                if (isValidMove(currentRow, currentCol, row, col, playerTurn)) {
+                    captureMoves.add(new String[] {checker, Utility.getLabel(row, col)});
                 }
             }
         }
 
         // Get all possible moves of king checkers
-        for(String checker: playerKingPosition) {
+        for(String checker: kingCheckerPosition) {
             int[] currentPostion = Utility.getPosition(checker);
             int currentRow = currentPostion[0];
             int currentCol = currentPostion[1];
@@ -175,16 +240,16 @@ class GameState {
             for(int[] dir: kingRegularDirs) {
                 int row = currentRow + dir[1];
                 int col = currentCol + dir[0];
-                if (isValidMove(currentRow, currentCol, row, col)) {
-                    regularMoves.add(Utility.getLabel(row, col));
+                if (isValidMove(currentRow, currentCol, row, col, playerTurn)) {
+                    regularMoves.add(new String[] {checker, Utility.getLabel(row, col)});
                 }
             }
 
             for(int[] dir: kingCaptureDirs) {
                 int row = currentRow + dir[1];
                 int col = currentCol + dir[0];
-                if (isValidMove(currentRow, currentCol, row, col)) {
-                    captureMoves.add(Utility.getLabel(row, col));
+                if (isValidMove(currentRow, currentCol, row, col, playerTurn)) {
+                    captureMoves.add(new String[] {checker, Utility.getLabel(row, col)});
                 }
             }
         }
@@ -197,9 +262,11 @@ class GameState {
 
     }
 
-    private boolean isValidMove(int oldRow, int oldCol, int row, int col) {
+    public boolean isValidMove(int oldRow, int oldCol, int row, int col, boolean playerTurn) {
+        //System.out.println("isValidMove : " + oldRow + " " + oldCol + " -> " + row + " " + col);
         // Invalid index
-        if (row < 0 || row > board.length || col < 0 || col > board[row].length) {
+        if (row < 0 || row >= board.length || col < 0 || col >= board[row].length ||
+                oldRow < 0 || oldRow >= board.length || oldCol < 0 || oldCol >= board[row].length) {
             return false;
         }
 
@@ -208,28 +275,177 @@ class GameState {
             return false;
         }
 
+        Player currentPlayer = playerTurn ? player : (Player.WHITE.equals(player) ? Player.BLACK : Player.WHITE);
         // Checker of opponent exists at new position
-        if ((Player.WHITE.equals(player) && board[row][col].equalsIgnoreCase("b")) || (Player.BLACK.equals(player) && board[row][col].equalsIgnoreCase("w"))) {
+        if ((Player.WHITE.equals(currentPlayer) && board[row][col].equalsIgnoreCase("b")) || (Player.BLACK.equals(currentPlayer) && board[row][col].equalsIgnoreCase("w"))) {
             return false;
         }
 
-        if (Player.WHITE.equals(player)) {
+        if (Player.WHITE.equals(currentPlayer)) {
             if (oldRow - row == 1 && Math.abs(col - oldCol) == 1) {
                 return true;
             } else if (oldRow - row == 2) {
                 // capture: check \ and / directions (must have opponent checker between two positions)
-                return ((col - oldCol == 2 && board[row-1][col+1].equalsIgnoreCase("b")) ||
-                        ((col - oldCol == -2 && board[row-1][col-1].equalsIgnoreCase("b"))));
+//                if (col - oldCol == 2) System.out.println("## consider " + (row+1) + " " + (col-1));
+//                if (col - oldCol == -2) System.out.println("## consider " + (row+1) + " " + (col+1));
+                return ((col - oldCol == 2 && board[row+1][col-1].equalsIgnoreCase("b")) ||
+                        ((col - oldCol == -2 && board[row+1][col+1].equalsIgnoreCase("b"))));
             }
         } else {
             if (row - oldRow == 1 && Math.abs(col - oldCol) == 1) {
                 return true;
             } else if (row - oldRow == 2) {
                 // capture: check \ and / directions (must have opponent checker between two positions)
-                return ((col - oldCol == 2 && board[row+1][col+1].equalsIgnoreCase("w")) ||
-                        ((col - oldCol == -2 && board[row+1][col-1].equalsIgnoreCase("w"))));
+//                if (col - oldCol == 2) System.out.println("## consider " + (row-1) + " " + (col-1));
+//                if (col - oldCol == -2) System.out.println("## consider " + (row-1) + " " + (col+1));
+                return ((col - oldCol == 2 && board[row-1][col-1].equalsIgnoreCase("w")) ||
+                        ((col - oldCol == -2 && board[row-1][col+1].equalsIgnoreCase("w"))));
             }
         }
+        return false;
+    }
+
+    public String[] applyMove(String[] move) {
+        // TODO change to king if enter king area
+        int[] oldPosition = Utility.getPosition(move[0]);
+        int[] newPosition = Utility.getPosition(move[1]);
+        int oldRow = oldPosition[1];
+        int oldCol = oldPosition[0];
+        int newRow = newPosition[1];
+        int newCol = newPosition[0];
+
+        board[newRow][newCol] = board[oldRow][oldCol];
+        board[oldRow][oldCol] = ".";
+
+        if (Math.abs(newRow - newCol) == 2) {
+            // capture move
+            int[] capturedPosition = new int[] { (oldCol+newCol) / 2 , (oldRow+newRow) / 2}; // (x,y)
+            String capturedLabel = Utility.getLabel(capturedPosition[1], capturedPosition[0]);
+            String color = board[capturedPosition[1]][capturedPosition[0]];
+            Player capturedPlayer = color.equalsIgnoreCase("w") ? Player.WHITE : Player.BLACK;
+            if (player.equals(capturedPlayer)) {
+                playerManPosition.remove(capturedLabel);
+                playerKingPosition.remove(capturedLabel);
+            } else {
+                opponentManPosition.remove(capturedLabel);
+                opponentKingPosition.remove(capturedLabel);
+            }
+            board[capturedPosition[1]][capturedPosition[0]] = ".";
+            return new String[] {capturedLabel, color}; // e.g. ("a1", "W")
+        }
+        return null;
+    }
+
+    public void resetMove(String[] move, String[] captured) {
+        int[] oldPosition = Utility.getPosition(move[0]);
+        int[] newPosition = Utility.getPosition(move[1]);
+        int oldRow = oldPosition[1];
+        int oldCol = oldPosition[0];
+        int newRow = newPosition[1];
+        int newCol = newPosition[0];
+
+        board[oldRow][oldCol] = board[newRow][newCol];
+        board[newRow][newCol] = ".";
+
+        if (Math.abs(newRow - newCol) == 2) {
+            int[] capturedPosition = new int[] { (oldCol+newCol) / 2 , (oldRow+newRow) / 2}; // (x,y)
+            String color = captured[1];
+            String capturedLabel = captured[0];
+            Player capturedPlayer = color.equalsIgnoreCase("w") ? Player.WHITE : Player.BLACK;
+            if (player.equals(capturedPlayer)) {
+                if (color.equals("w")) playerManPosition.add(capturedLabel);
+                else playerKingPosition.add(capturedLabel);
+            } else {
+                if (color.equals("b")) opponentManPosition.add(capturedLabel);
+                else opponentKingPosition.add(capturedLabel);
+            }
+            board[capturedPosition[1]][capturedPosition[0]] = color;
+        }
+    }
+
+    // Check if player is able to move any checkers
+    public boolean canPlayerContinue() {
+        int[][] dirs;
+        int[][] kingDirs = new int[][]{{1, -1}, {-1, -1}, {1, 1}, {-1, 1}, {2, -2}, {-2, -2}, {2, 2}, {-2, 2}};
+        if (Player.WHITE.equals(player)) {
+            dirs = new int[][]{{1, -1}, {-1, -1}, {2, -2}, {-2, -2}};
+        } else {
+            dirs = new int[][]{{1, 1}, {-1, 1}, {2, 2}, {-2, 2}};
+        }
+
+        for(String checker: playerManPosition) {
+            int[] position = Utility.getPosition(checker);
+            for(int[] dir: dirs) {
+                if (isValidMove(position[1], position[0], position[1] + dir[1], position[0] + dir[0], true)) {
+                    return true;
+                }
+            }
+        }
+
+        for(String checker: playerKingPosition) {
+            int[] position = Utility.getPosition(checker);
+            for(int[] dir: kingDirs) {
+                if (isValidMove(position[1], position[0], position[1] + dir[1], position[0] + dir[0], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean canOpponentContinue() {
+        int[][] dirs;
+        int[][] kingDirs = new int[][]{{1, -1}, {-1, -1}, {1, 1}, {-1, 1}, {2, -2}, {-2, -2}, {2, 2}, {-2, 2}};
+        Player opponent = Player.WHITE.equals(player) ? Player.BLACK : Player.WHITE;
+        if (Player.WHITE.equals(opponent)) {
+            dirs = new int[][]{{1, -1}, {-1, -1}, {2, -2}, {-2, -2}};
+        } else {
+            dirs = new int[][]{{1, 1}, {-1, 1}, {2, 2}, {-2, 2}};
+        }
+
+        for(String checker: opponentManPosition) {
+            int[] position = Utility.getPosition(checker);
+            for(int[] dir: dirs) {
+                if (isValidMove(position[1], position[0], position[1] + dir[1], position[0] + dir[0], false)) {
+                    return true;
+                }
+            }
+        }
+
+        for(String checker: opponentKingPosition) {
+            int[] position = Utility.getPosition(checker);
+            for(int[] dir: kingDirs) {
+                if (isValidMove(position[1], position[0], position[1] + dir[1], position[0] + dir[0], false)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public Integer utility() {
+        // TODO adjust utility function
+        return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 500 + getPlayerCheckerSize() * 50;
+    }
+
+    public Integer evaluation() {
+        // TODOD
+        return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + getPlayerCheckerSize();
+    }
+
+    public boolean isTerminal() {
+        // One player loses all checkers
+        if (getPlayerCheckerSize() == 0 || getOpponentCheckerSize() == 0) {
+            return true;
+        }
+
+        // No possible move
+        if (!canOpponentContinue() && !canPlayerContinue()) {
+            return true;
+        }
+
         return false;
     }
 
@@ -247,6 +463,18 @@ class GameState {
             }
             System.out.println("");
         }
+    }
+
+    private Integer getPlayerCheckerSize() {
+        return playerManPosition.size() + playerManPosition.size();
+    }
+
+    private Integer getOpponentCheckerSize() {
+        return opponentManPosition.size() + opponentKingPosition.size();
+    }
+
+    public String[][] getBoard() {
+        return board;
     }
 }
 
