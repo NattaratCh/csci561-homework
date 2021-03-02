@@ -16,18 +16,19 @@ public class Homework {
 }
 
 class CheckerGame {
-    private GameState gameState;
-    private MoveLog bestMove;
+    private Move bestMove;
     private Integer depthLimit;
+    private int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
+    private int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
 
     public CheckerGame() {
-        this.gameState = readInput("./test-cases/input6.txt");
         this.depthLimit = 1;
     }
 
     public void start() {
+        GameState gameState = readInput("./test-cases/input3.txt");
         gameState.printState();
-        nextMove();
+        nextMove(gameState);
     }
 
     public GameState readInput(String filename) {
@@ -65,11 +66,11 @@ class CheckerGame {
         }
     }
 
-    public void nextMove() {
-        minimax();
+    public void nextMove(GameState gameState) {
+        minimax(gameState);
     }
 
-    public void minimax() {
+    public void minimax(GameState gameState) {
         if (gameState.isInitialState()) {
             depthLimit = 1;
         } else {
@@ -95,16 +96,23 @@ class CheckerGame {
 
         Integer value = Integer.MIN_VALUE;
         Integer next = null;
-        List<Move> possibleMoves = state.getAllPossibleMoves();
+        List<Move> possibleMoves = getAllPossibleMoves(state);
+        GameState cloneState;
         for (Move move: possibleMoves) {
-            MoveLog moveLog = state.applyMove(move); // TODO handle null
-            state.printBoard();
-            if (state.canOpponentContinue()) {
-                state.setIsPlayerTurn(false);
-                next = minValue(state, alpha, beta, depth+1);
+            try {
+                cloneState = (GameState) state.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                continue;
+            }
+            applyMove(cloneState, move); // TODO handle null
+            cloneState.printBoard();
+            if (cloneState.canOpponentContinue()) {
+                cloneState.setIsPlayerTurn(false);
+                next = minValue(cloneState, alpha, beta, depth+1);
             } else {
-                state.setIsPlayerTurn(true);
-                next = maxValue(state, alpha, beta, depth+1);
+                cloneState.setIsPlayerTurn(true);
+                next = maxValue(cloneState, alpha, beta, depth+1);
             }
 
             System.out.println("maxValue value: " + next);
@@ -112,12 +120,11 @@ class CheckerGame {
 
             if (next > value) {
                 value = next;
-                if (depth == 0) bestMove = moveLog;
+                if (depth == 0) bestMove = move;
                 System.out.println("## depth: " + depth);
-                System.out.println("## best move: " + move.getFrom() + " => " + moveLog.getTo());
+                System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
             }
-            state.setIsPlayerTurn(true);
-            state.resetMove(moveLog);
+            cloneState.setIsPlayerTurn(true);
 
             if (value >= beta) return value;
             alpha = Math.max(alpha, value);
@@ -137,29 +144,365 @@ class CheckerGame {
         }
 
         Integer value = Integer.MAX_VALUE;
-        List<Move> possibleMoves = state.getAllPossibleMoves();
+        GameState cloneState;
+        List<Move> possibleMoves = getAllPossibleMoves(state);
         for (Move move: possibleMoves) {
-            MoveLog moveLog = state.applyMove(move);
-            state.printBoard();
-            if (state.canPlayerContinue()) {
-                state.setIsPlayerTurn(true);
-                value = Math.min(value, maxValue(state, alpha, beta, depth+1));
+            try {
+                cloneState = (GameState) state.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                continue;
+            }
+            applyMove(cloneState, move);
+            cloneState.printBoard();
+            if (cloneState.canPlayerContinue()) {
+                cloneState.setIsPlayerTurn(true);
+                value = Math.min(value, maxValue(cloneState, alpha, beta, depth+1));
             } else {
-                state.setIsPlayerTurn(false);
-                value = Math.min(value, minValue(state, alpha, beta, depth+1));
+                cloneState.setIsPlayerTurn(false);
+                value = Math.min(value, minValue(cloneState, alpha, beta, depth+1));
             }
             System.out.println("minValue value: " + value);
-            state.setIsPlayerTurn(false);
-            state.resetMove(moveLog);
+            cloneState.setIsPlayerTurn(false);
 
             if (value <= alpha) return alpha;
             beta = Math.min(beta, value);
         }
         return value;
     }
+
+    public List<Move> getPossibleJump(GameState gameState, int currentRow, int currentCol, int[][] captureDirs) {
+        Queue<Move> queue = new LinkedList<>();
+        List<Move> moves = new ArrayList<>();
+        String[][] board = gameState.getBoard();
+        // First jump
+        Move current = new Move(MoveType.JUMP, null, Utility.getLabel(currentRow, currentCol), null, board[currentRow][currentCol], board[currentRow][currentCol]);
+        loopJump(gameState, current, captureDirs, queue, moves, true);
+
+        while(!queue.isEmpty()) {
+            Move move = queue.poll();
+            String fromLabel = move.getTo();
+            int[] fromPosition = Utility.getPosition(fromLabel);
+            board = gameState.getBoard();
+            if (isKingChecker(board[fromPosition[1]][fromPosition[0]])) {
+                loopJump(gameState, move, kingCaptureDirs, queue, moves, false);
+            } else {
+                loopJump(gameState, move, captureDirs, queue, moves, false);
+            }
+        }
+        return moves;
+    }
+
+    public void loopJump(GameState gameState, Move move, int[][] captureDirs, Queue<Move> queue, List<Move> moves, boolean isFirstJump) {
+        if (move != null && move.isBecomeKing()) {
+            moves.add(move);
+            return;
+        }
+        boolean isValid = false;
+        String[][] board;
+        for(int[] dir: captureDirs) {
+            String fromLabel = move.getTo();
+            int[] position = Utility.getPosition(fromLabel);
+            int row = position[1] + dir[1];
+            int col = position[0] + dir[0];
+            if (isValidMove(gameState, position[1], position[0], row, col)) {
+                isValid = true;
+                Move nextMove = new Move(MoveType.JUMP, move.getTo(), Utility.getLabel(row, col), move, move.getToChecker(), null);
+                applyMove(gameState, nextMove);
+                board = gameState.getBoard();
+                String toChecker =  board[row][col];
+                nextMove.setToChecker(toChecker);
+                queue.add(nextMove);
+            }
+        }
+
+        if (!isValid && !isFirstJump) {
+            moves.add(move);
+        }
+    }
+
+    public void applyNewMove(GameState gameState, Move move) {
+        int[] oldPosition = Utility.getPosition(move.getFrom());
+        int[] newPosition = Utility.getPosition(move.getTo());
+        int oldRow = oldPosition[1];
+        int oldCol = oldPosition[0];
+        int newRow = newPosition[1];
+        int newCol = newPosition[0];
+        String[][] board = gameState.getBoard();
+
+        Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
+        boolean isMoveToKingArea = Utility.isKingArea(currentPlayer, newRow, newCol);
+
+        if (isMoveToKingArea) {
+            System.out.println("applyNewMove move to king " + move.getFrom() + " " + move.getTo() );
+            board[newRow][newCol] = board[oldRow][oldCol].toUpperCase();
+            if (currentPlayer.equals(gameState.getPlayer())) {
+                gameState.getPlayerKingPosition().add(move.getTo());
+                gameState.getPlayerManPosition().remove(move.getFrom());
+            } else {
+                gameState.getOpponentKingPosition().add(move.getTo());
+                gameState.getOpponentManPosition().remove(move.getFrom());
+            }
+        } else {
+            board[newRow][newCol] = board[oldRow][oldCol];
+            if (currentPlayer.equals(gameState.getPlayer())) {
+                gameState.getPlayerManPosition().add(move.getTo());
+                gameState.getPlayerManPosition().remove(move.getFrom());
+            } else {
+                gameState.getOpponentManPosition().add(move.getTo());
+                gameState.getOpponentManPosition().remove(move.getFrom());
+            }
+        }
+        board[oldRow][oldCol] = ".";
+    }
+
+    public MoveLog applySingleMove(GameState gameState, Move move) {
+        int[] oldPosition = Utility.getPosition(move.getFrom());
+        int[] newPosition = Utility.getPosition(move.getTo());
+        int oldRow = oldPosition[1];
+        int oldCol = oldPosition[0];
+        int newRow = newPosition[1];
+        int newCol = newPosition[0];
+        String[][] board = gameState.getBoard();
+
+        String fromChecker = board[oldRow][oldCol];
+
+        applyNewMove(gameState, move);
+
+        return new MoveLog(MoveType.JUMP.ONE, fromChecker, board[newRow][newCol], move.getFrom(), move.getTo(), null, null, null);
+    }
+
+    public void applyJumpMoves(GameState gameState, Move move) {
+
+        Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
+
+        int[] oldPosition = Utility.getPosition(move.getFrom());
+        int[] newPosition = Utility.getPosition(move.getTo());
+        int oldRow = oldPosition[1];
+        int oldCol = oldPosition[0];
+        int newRow = newPosition[1];
+        int newCol = newPosition[0];
+        String[][] board = gameState.getBoard();
+        System.out.println("applyJumpMoves from " + oldCol + " " + oldRow + " to " + newCol + " " + newRow);
+        System.out.println("applyJumpMoves from " + move.getFrom() + " to " + move.getTo());
+
+        String fromChecker = board[oldRow][oldCol];
+
+        applyNewMove(gameState, move);
+
+        // Handle capture
+        int[] capturedPosition = new int[] { (oldCol+newCol) / 2 , (oldRow+newRow) / 2}; // (x,y)
+        String capturedLabel = Utility.getLabel(capturedPosition[1], capturedPosition[0]);
+        String capturedChecker = board[capturedPosition[1]][capturedPosition[0]];
+        if (gameState.getOpponent().equals(currentPlayer)) {
+            gameState.getPlayerManPosition().remove(capturedLabel);
+            gameState.getPlayerKingPosition().remove(capturedLabel);
+        } else {
+            gameState.getOpponentManPosition().remove(capturedLabel);
+            gameState.getOpponentKingPosition().remove(capturedLabel);
+        }
+        board[capturedPosition[1]][capturedPosition[0]] = ".";
+    }
+
+    public void applyMove(GameState gameState, Move move) {
+        System.out.println("applyMove " + move.getMoveType() + " from " + move.getFrom() + " to " + move.getTo());
+        if (MoveType.ONE.equals(move.getMoveType())) {
+            applySingleMove(gameState, move);
+        } else if (MoveType.JUMP.equals(move.getMoveType())) {
+            applyJumpMoves(gameState, move);
+        }
+    }
+
+    public List<Move> getAllPossibleMoves(GameState gameState) {
+        int[][] regularDirs;
+        int[][] captureDirs;
+
+        Set<String> manCheckerPosition = gameState.isPlayerTurn() ? new HashSet<>(gameState.getPlayerManPosition()) : new HashSet<>(gameState.getOpponentManPosition());
+        Set<String> kingCheckerPosition = gameState.isPlayerTurn() ? new HashSet<>(gameState.getPlayerKingPosition()) : new HashSet<>(gameState.getOpponentKingPosition());
+
+        Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
+
+        if (Player.WHITE.equals(currentPlayer)) {
+            regularDirs = new int[][]{{1, -1}, {-1, -1}};
+            captureDirs = new int[][]{{2, -2}, {-2, -2}};
+        } else {
+            regularDirs = new int[][]{{1, 1}, {-1, 1}};
+            captureDirs = new int[][]{{2, 2}, {-2, 2}};
+        }
+
+        List<Move> regularMoves = new ArrayList<>();
+        List<Move> captureMoves = new ArrayList<>();
+        GameState cloneState;
+
+        // Get all possible moves of man checkers
+        for(String checker: manCheckerPosition) {
+            int[] currentPostion = Utility.getPosition(checker);
+            int currentRow = currentPostion[1];
+            int currentCol = currentPostion[0];
+            try {
+                cloneState = (GameState) gameState.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                continue;
+            }
+
+            System.out.println("checker " + checker + " " + cloneState.getBoard()[currentRow][currentCol]);
+
+            List<Move> jumps = getPossibleJump(cloneState, currentRow, currentCol, captureDirs);
+            System.out.println("getAllPossibleMoves | jump size " + jumps.size());
+
+            if (jumps.isEmpty()) {
+                String[][] board = gameState.getBoard();
+                for (int[] dir : regularDirs) {
+                    int row = currentRow + dir[1];
+                    int col = currentCol + dir[0];
+                    if (isValidMove(cloneState, currentRow, currentCol, row, col)) {
+                        System.out.println("Add possible move " + checker + " -> " + Utility.getLabel(row, col));
+                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null, board[currentRow][currentCol], board[row][col]));
+                    }
+                }
+            } else {
+                captureMoves = jumps;
+            }
+        }
+
+        // Get all possible moves of king checkers
+        for(String checker: kingCheckerPosition) {
+            System.out.println("king " + checker);
+            int[] currentPostion = Utility.getPosition(checker);
+            int currentRow = currentPostion[1];
+            int currentCol = currentPostion[0];
+            try {
+                cloneState = (GameState) gameState.clone();
+            } catch (CloneNotSupportedException e) {
+                e.printStackTrace();
+                continue;
+            }
+
+            List<Move> jumps = getPossibleJump(cloneState, currentRow, currentCol, kingCaptureDirs);
+            System.out.println("getAllPossibleMoves | jump size " + jumps.size());
+
+            if (jumps.isEmpty()) {
+                String[][] board = gameState.getBoard();
+                for(int[] dir: kingRegularDirs) {
+                    int row = currentRow + dir[1];
+                    int col = currentCol + dir[0];
+                    if (isValidMove(cloneState, currentRow, currentCol, row, col)) {
+                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null, board[currentRow][currentCol], board[row][col]));
+                    }
+                }
+            } else {
+                captureMoves = jumps;
+            }
+        }
+
+        if (!captureMoves.isEmpty()) {
+            return captureMoves;
+        } else {
+            return regularMoves;
+        }
+
+    }
+
+    public boolean isValidMove(GameState gameState, int oldRow, int oldCol, int row, int col) {
+        String[][] board = gameState.getBoard();
+        gameState.printBoard();
+        // Invalid index
+        if (row < 0 || row >= board.length || col < 0 || col >= board[row].length ||
+                oldRow < 0 || oldRow >= board.length || oldCol < 0 || oldCol >= board[row].length) {
+            return false;
+        }
+
+        System.out.println("isValidMove : " + Utility.getLabel(oldRow,oldCol) + " -> " + Utility.getLabel(row,col));
+
+        // No checker
+        if (board[oldRow][oldCol].equals(".")) {
+            System.out.println("1");
+            return false;
+        }
+
+        Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
+        // Another checker exists at new position
+        if (!board[row][col].equals(".")) {
+            System.out.println("2");
+            return false;
+        }
+
+        boolean isKing = isKingChecker(board[oldRow][oldCol]);
+        if (isKing && Math.abs(oldRow-row) == 1 && Math.abs(col-oldCol) == 1) {
+            // King normal move
+            return true;
+        }
+
+        if (Player.WHITE.equals(currentPlayer)) {
+            if (!isKing && isMoveUp(oldRow, row) && Math.abs(row-oldRow) == 1 && Math.abs(col - oldCol) == 1) {
+                return true;
+            } else if (isKing && Math.abs(oldRow-row) == 2) {
+                // King captures
+                if (isMoveUp(oldRow, row)) {
+                    return ((isMoveRight(oldCol, col) && board[row+1][col-1].equalsIgnoreCase("b")) ||
+                            (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("b")));
+                } else if (isMoveDown(oldRow, row)) {
+                    return ((isMoveRight(oldCol, col) && board[row-1][col-1].equalsIgnoreCase("b")) ||
+                            (isMoveLeft(oldCol, col) && board[row-1][col+1].equalsIgnoreCase("b")));
+                }
+            } else if (!isKing && isMoveUp(oldRow, row) && Math.abs(row - oldRow) == 2) {
+                // Man captures move
+                // capture: check \ and / directions (must have opponent checker between two positions)
+                return ((isMoveRight(oldCol, col) && board[row+1][col-1].equalsIgnoreCase("b")) ||
+                        (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("b")));
+            }
+        } else {
+            if (!isKing && isMoveDown(oldRow, row) && Math.abs(row-oldRow) == 1 && Math.abs(col - oldCol) == 1) {
+                System.out.println("3");
+                return true;
+            } else if (isKing && Math.abs(oldRow-row) == 2) {
+                // King captures
+                if (isMoveUp(oldRow, row)) {
+                    System.out.println("4" + (((isMoveRight(oldCol, col) && board[row+1][col-1].equalsIgnoreCase("w")) ||
+                            (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("w")))));
+                    //System.out.println("Black King move up + left " + board[row+1][col+1]);
+                    return ((isMoveRight(oldCol, col) && board[row+1][col-1].equalsIgnoreCase("w")) ||
+                            (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("w")));
+                } else if (isMoveDown(oldRow, row)) {
+                    System.out.println("5");
+                    return ((isMoveRight(oldCol, col) && board[row-1][col-1].equalsIgnoreCase("w")) ||
+                            (isMoveLeft(oldCol, col) && board[row-1][col+1].equalsIgnoreCase("w")));
+                }
+            } else if (!isKing && isMoveDown(oldRow, row) && Math.abs(row - oldRow) == 2) {
+                // Man captures move
+                // capture: check \ and / directions (must have opponent checker between two positions)
+                System.out.println("6");
+                return ((isMoveRight(oldCol, col) && board[row-1][col-1].equalsIgnoreCase("w")) ||
+                        (isMoveLeft(oldCol, col) && board[row-1][col+1].equalsIgnoreCase("w")));
+            }
+        }
+        System.out.println("7");
+        return false;
+    }
+
+    private boolean isMoveLeft(int oldCol, int col) {
+        return col < oldCol;
+    }
+
+    private boolean isMoveRight(int oldCol, int col) {
+        return col > oldCol;
+    }
+
+    private boolean isMoveUp(int oldRow, int row) {
+        return row < oldRow;
+    }
+
+    private boolean isMoveDown(int oldRow, int row) {
+        return row > oldRow;
+    }
+
+    public boolean isKingChecker(String checker) {
+        return checker.equals("W") || checker.equals("B");
+    }
 }
 
-class GameState {
+class GameState implements Cloneable {
     private String[][] board;
     private Player player;
     private Player opponent;
@@ -188,6 +531,11 @@ class GameState {
         this.isPlayerTurn = isPlayerTurn;
         this.jumpList = new ArrayList<>();
         setupPosition();
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        return super.clone();
     }
 
     private void setupPosition() {
@@ -225,7 +573,7 @@ class GameState {
                 visited.add(Utility.getLabel(row, col));
                 isValid = true;
                 System.out.println("valid getPossibleJumps " + Utility.getLabel(currentRow, currentCol) + " -> " + newLabel);
-                Move newMove = new Move(MoveType.JUMP, Utility.getLabel(currentRow, currentCol), newLabel, move);
+                Move newMove = new Move(MoveType.JUMP, Utility.getLabel(currentRow, currentCol), newLabel, move, null, null);
                 getPossibleJumps(row, col, captureDirs, newMove, jumpCount+1, isKing, visited);
                 visited.remove(newLabel);
             }
@@ -273,7 +621,7 @@ class GameState {
                     int col = currentCol + dir[0];
                     if (isValidMove(currentRow, currentCol, row, col, true, isPlayerTurn, false)) {
                         System.out.println("Add possible move " + checker + " -> " + Utility.getLabel(row, col));
-                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null));
+                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null, null, null));
                     }
                 }
             } else {
@@ -296,7 +644,7 @@ class GameState {
                     int row = currentRow + dir[1];
                     int col = currentCol + dir[0];
                     if (isValidMove(currentRow, currentCol, row, col, true, isPlayerTurn, true)) {
-                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null));
+                        regularMoves.add(new Move(MoveType.ONE, checker, Utility.getLabel(row, col), null, null, null));
                     }
                 }
             } else {
@@ -780,6 +1128,54 @@ class GameState {
         }
         return getPlayerCheckerSize() == 8 && getOpponentCheckerSize() == 8;
     }
+
+    public Player getPlayer() {
+        return player;
+    }
+
+    public Player getOpponent() {
+        return opponent;
+    }
+
+    public Mode getMode() {
+        return mode;
+    }
+
+    public float getTimeRemaining() {
+        return timeRemaining;
+    }
+
+    public Set<String> getPlayerManPosition() {
+        return playerManPosition;
+    }
+
+    public Set<String> getPlayerKingPosition() {
+        return playerKingPosition;
+    }
+
+    public Set<String> getOpponentManPosition() {
+        return opponentManPosition;
+    }
+
+    public Set<String> getOpponentKingPosition() {
+        return opponentKingPosition;
+    }
+
+    public boolean isPlayerTurn() {
+        return isPlayerTurn;
+    }
+
+    public List<Move> getJumpList() {
+        return jumpList;
+    }
+
+    public int[][] getKingRegularDirs() {
+        return kingRegularDirs;
+    }
+
+    public int[][] getKingCaptureDirs() {
+        return kingCaptureDirs;
+    }
 }
 
 enum Mode {
@@ -881,14 +1277,21 @@ class Move {
     private MoveType moveType;
     private String from;
     private String to;
-    private String checker;
+    private String fromChecker;
+    private String toChecker;
     private Move move;
 
-    public Move(MoveType moveType, String from, String to, Move move) {
+    public Move(MoveType moveType, String from, String to, Move move, String fromChecker, String toChecker) {
         this.moveType = moveType;
         this.from = from;
         this.to = to;
         this.move = move;
+        this.fromChecker = fromChecker;
+        this.toChecker = toChecker;
+    }
+
+    public boolean isBecomeKing() {
+        return this.toChecker != null && this.fromChecker != null && !this.toChecker.equals(this.fromChecker);
     }
 
     public MoveType getMoveType() {
@@ -907,8 +1310,34 @@ class Move {
         return move;
     }
 
-    public String getChecker() {
-        return checker;
+    public void setMove(Move move) {
+        this.move = move;
+    }
+
+    public String getFromChecker() {
+        return fromChecker;
+    }
+
+    public String getToChecker() {
+        return toChecker;
+    }
+
+    public void setToChecker(String toChecker) {
+        this.toChecker = toChecker;
+    }
+
+    public void print() {
+        Stack<Move> stack = new Stack<>();
+        Move m = this;
+        while(m != null) {
+            stack.push(m);
+            m = m.getMove();
+        }
+
+        while(!stack.isEmpty()) {
+            m = stack.pop();
+            System.out.println(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
+        }
     }
 }
 
