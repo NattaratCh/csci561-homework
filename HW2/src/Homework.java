@@ -1,7 +1,10 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by nuning on 2/25/21.
@@ -9,10 +12,29 @@ import java.util.*;
 
 public class Homework {
     public static void main(String[] args) {
+        getCPUTime();
         CheckerGame checkerGame = new CheckerGame();
         checkerGame.start();
+        getCPUTime();
     }
 
+    private static float getCPUTime() {
+        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        long[] threadIds = threadMXBean.getAllThreadIds();
+        long nanotime = 0;
+        for (long id: threadIds) {
+            nanotime += threadMXBean.getThreadCpuTime(id);
+        }
+
+        long secondTime = TimeUnit.NANOSECONDS.toSeconds(nanotime);
+        System.out.println("###### All threads CPU time ######");
+        System.out.println("Time (ns): " + nanotime);
+        System.out.println("Time (s): " + secondTime);
+        System.out.println("###### Current thread CPU time ######");
+        System.out.println("Time (ns): " + threadMXBean.getCurrentThreadCpuTime());
+        System.out.println("Time (s): " + TimeUnit.NANOSECONDS.toSeconds(threadMXBean.getCurrentThreadCpuTime()));
+        return secondTime;
+    }
 }
 
 class CheckerGame {
@@ -26,6 +48,7 @@ class CheckerGame {
     }
 
     public void start() {
+
         GameState gameState = readInput("./test-cases/input6.txt");
         gameState.printState();
         nextMove(gameState);
@@ -74,6 +97,7 @@ class CheckerGame {
         if (gameState.isInitialState()) {
             depthLimit = 1;
         } else {
+            // TODO
             depthLimit = 5;
         }
         System.out.println("minimax depth limit: " + depthLimit);
@@ -113,7 +137,7 @@ class CheckerGame {
             }
 
             System.out.println("maxValue value: " + next);
-            System.out.println("--");
+            System.out.println("----------------------------");
 
             if (next > value) {
                 value = next;
@@ -153,6 +177,7 @@ class CheckerGame {
                 value = Math.min(value, minValue(nextState, alpha, beta, depth+1));
             }
             System.out.println("minValue value: " + value);
+            System.out.println("----------------------------");
 
             if (value <= alpha) return alpha;
             beta = Math.min(beta, value);
