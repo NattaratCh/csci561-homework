@@ -8,12 +8,12 @@ import java.util.concurrent.TimeUnit;
  * Created by nuning on 2/25/21.
  */
 
-public class Homework {
+public class HomeworkNoPruning {
     public static void main(String[] args) {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
         long startTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
         System.out.println("startTime " + startTime);
-        CheckerGame checkerGame = new CheckerGame(threadMXBean, startTime);
+        CheckerGameNoPruning checkerGame = new CheckerGameNoPruning(threadMXBean, startTime);
         checkerGame.start();
         writeTime(checkerGame.getUseTime());
     }
@@ -47,7 +47,7 @@ public class Homework {
     }
 }
 
-class CheckerGame {
+class CheckerGameNoPruning {
     private ThreadMXBean threadMXBean;
     private long startTime;
     private Move bestMove;
@@ -55,7 +55,7 @@ class CheckerGame {
     private int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
     private int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
 
-    public CheckerGame(ThreadMXBean threadMXBean, long startTime) {
+    public CheckerGameNoPruning(ThreadMXBean threadMXBean, long startTime) {
         this.depthLimit = 1;
         this.startTime = startTime;
         this.threadMXBean = threadMXBean;
@@ -138,13 +138,13 @@ class CheckerGame {
 
 
         System.out.println("minimax depth limit: " + depthLimit);
-        Integer value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0);
+        Integer value = maxValue(gameState, 0);
         System.out.println("value: " + value);
     }
 
     private void writeOutput() {
         if (bestMove == null) {
-            System.out.println("Smart Agent: Cannot move");
+            System.out.println("No pruning agent : Cannot move");
             return;
         }
         List<String> results = bestMove.print();
@@ -162,7 +162,7 @@ class CheckerGame {
     }
 
     // Player
-    public Integer maxValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Integer maxValue(GameState state, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("maxValue depth " + depth);
         if (isTerminal(state)) {
@@ -178,23 +178,19 @@ class CheckerGame {
         Integer value = Integer.MIN_VALUE;
         Integer next = null;
         List<Move> possibleMoves = getAllPossibleMoves(state);
-        System.out.println("possibleMoves size " + possibleMoves.size());
         for (Move move: possibleMoves) {
             GameState nextState = move.getState();
             nextState.printBoard();
             if (canOpponentContinue(nextState)) {
                 System.out.println("opponent moves");
                 nextState.setIsPlayerTurn(false);
-                next = minValue(nextState, alpha, beta, depth+1);
-                System.out.println("++++maxValue next: " + next);
+                next = minValue(nextState, depth+1);
             } else {
                 bestMove = move;
                 return value;
             }
 
-            System.out.println("maxValue value: " + value);
-            System.out.println("maxValue next: " + next);
-            System.out.println("maxValue compare " + next.compareTo(value));
+            System.out.println("maxValue value: " + next);
             System.out.println("----------------------------");
 
             if (next > value) {
@@ -204,8 +200,6 @@ class CheckerGame {
                 System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
             }
 
-            if (value >= beta) return value;
-            alpha = Math.max(alpha, value);
 
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
                 return value;
@@ -217,7 +211,7 @@ class CheckerGame {
     }
 
     // Opponent
-    public Integer minValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Integer minValue(GameState state, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("minValue depth " + depth);
         if (isTerminal(state)) {
@@ -235,18 +229,12 @@ class CheckerGame {
             nextState.printBoard();
             if (canPlayerContinue(nextState)) {
                 nextState.setIsPlayerTurn(true);
-                value = Math.min(value, maxValue(nextState, alpha, beta, depth+1));
+                value = Math.min(value, maxValue(nextState, depth+1));
             } else {
                 return value;
             }
             System.out.println("minValue value: " + value);
             System.out.println("----------------------------");
-
-            if (value <= alpha) {
-                System.out.println("return alpha");
-                return alpha;
-            }
-            beta = Math.min(beta, value);
 
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
                 return value;
@@ -270,40 +258,7 @@ class CheckerGame {
     }
 
     public Integer evaluation(GameState gameState) {
-        // TODO rewrite evaluation function
-
-//        Integer blackValue = 0;
-//        Integer whiteValue = 0;
-//
-//        Set<String> blackKing = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
-//        Set<String> whiteKing = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
-//        Set<String> blackMan = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
-//        Set<String> whiteMan = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
-//
-//        for(String whiteChecker: whiteKing) {
-//            int[] position = Utility.getPosition(whiteChecker);
-//            whiteValue += (5 + (7-position[0]) + 2);
-//        }
-//        for(String whiteChecker: whiteMan) {
-//            int[] position = Utility.getPosition(whiteChecker);
-//            whiteValue += (5 + (7-position[0]));
-//        }
-//
-//        for(String blackChecker: blackKing) {
-//            int[] position = Utility.getPosition(blackChecker);
-//            blackValue += (5 + position[0] + 2);
-//        }
-//        for(String blackChecker: blackMan) {
-//            int[] position = Utility.getPosition(blackChecker);
-//            blackValue += (5 + position[0]);
-//        }
-//
-//        if (Player.BLACK.equals(gameState.getPlayer())) {
-//            return blackValue - whiteValue;
-//        } else {
-//            return whiteValue - blackValue;
-//        }
-
+        // TODO
         Set<String> opponentKing = gameState.getOpponentKingPosition();
         Set<String> playerKing = gameState.getPlayerKingPosition();
         int playerCheckerSize = gameState.getPlayerCheckerSize();
@@ -313,10 +268,6 @@ class CheckerGame {
         } else {
             return (playerCheckerSize - opponentCheckerSize) * 50 + playerKing.size() * 20 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
         }
-    }
-
-    private Integer distance(int player, int opponent) {
-        return Math.abs(player - opponent);
     }
 
     public List<Move> getPossibleJump(GameState gameState, int currentRow, int currentCol, int[][] captureDirs) {
@@ -731,448 +682,5 @@ class CheckerGame {
         }
 
         return false;
-    }
-}
-
-class GameState {
-    private String[][] board;
-    private Player player;
-    private Player opponent;
-    private Mode mode;
-    private double timeRemaining;
-    private Set<String> playerManPosition;
-    private Set<String> playerKingPosition;
-    private Set<String> opponentManPosition;
-    private Set<String> opponentKingPosition;
-    private boolean isPlayerTurn;
-
-    public GameState(String[][] board, Player player, Mode mode, double timeRemaining, boolean isPlayerTurn) {
-        this.board = board;
-        this.player = player;
-        this.opponent = Player.WHITE.equals(player) ? Player.BLACK : Player.WHITE;
-        this.mode = mode;
-        this.timeRemaining = timeRemaining;
-        playerManPosition = new HashSet<>();
-        playerKingPosition = new HashSet<>();
-        opponentManPosition = new HashSet<>();
-        opponentKingPosition = new HashSet<>();
-        this.isPlayerTurn = isPlayerTurn;
-        setupPosition();
-    }
-
-    public GameState(GameState gameState) {
-        this.board = new String[gameState.getBoard().length][gameState.getBoard().length];
-        for (int r=0; r<gameState.getBoard().length; r++) {
-            this.board[r] = Arrays.copyOf(gameState.getBoard()[r], gameState.getBoard().length);
-        }
-        this.player = gameState.player;
-        this.opponent = gameState.opponent;
-        this.mode = gameState.mode;
-        this.timeRemaining = gameState.timeRemaining;
-        this.playerManPosition = new HashSet<>(gameState.playerManPosition);
-        this.playerKingPosition = new HashSet<>(gameState.playerKingPosition);
-        this.opponentManPosition = new HashSet<>(gameState.opponentManPosition);
-        this.opponentKingPosition = new HashSet<>(gameState.opponentKingPosition);
-        this.isPlayerTurn = gameState.isPlayerTurn;
-    }
-
-    public static GameState newInstance(GameState gameState) {
-        return new GameState(gameState);
-    }
-
-    private void setupPosition() {
-        for(int r=0; r<board.length; r++) {
-            for(int c=0; c<board[r].length; c++) {
-                if(board[r][c].equals("b")) {
-                    if (Player.BLACK.equals(player)) playerManPosition.add(Utility.boardLabel[r][c]);
-                    else opponentManPosition.add(Utility.boardLabel[r][c]);
-                } else if(board[r][c].equals("B")) {
-                    if (Player.BLACK.equals(player)) playerKingPosition.add(Utility.boardLabel[r][c]);
-                    else opponentKingPosition.add(Utility.boardLabel[r][c]);
-                } else if (board[r][c].equals("w")) {
-                    if (Player.WHITE.equals(player)) playerManPosition.add(Utility.boardLabel[r][c]);
-                    else opponentManPosition.add(Utility.boardLabel[r][c]);
-                } else if (board[r][c].equals("W")) {
-                    if (Player.WHITE.equals(player)) playerKingPosition.add(Utility.boardLabel[r][c]);
-                    else opponentKingPosition.add(Utility.boardLabel[r][c]);
-                }
-            }
-        }
-    }
-
-    public Integer utility() {
-        return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 500;
-    }
-
-    public Integer evaluation() {
-        // TODO
-        System.out.println("evaluation king: " + playerKingPosition.size());
-        if (opponentKingPosition.isEmpty()) {
-            return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + getPlayerSafeCheckers() * 10 + playerKingPosition.size() * 20 + getPlayerKingAreaChecker() + playerManPosition.size();
-        } else {
-            return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + playerKingPosition.size() * 20 + getPlayerKingAreaChecker() + playerManPosition.size();
-        }
-    }
-
-    private Integer distance(int player, int opponent) {
-        return Math.abs(player - opponent);
-    }
-
-    public int getPlayerSafeCheckers() {
-        int count = 0;
-        for (String checker: playerManPosition) {
-            int[] playerPos = Utility.getPosition(checker);
-            int playerRow = playerPos[1];
-            int playerCol = playerPos[0];
-            boolean safe = true;
-
-            int safeRow = Player.WHITE.equals(player) ? board.length-1 : 0;
-            if (playerCol != 0 && playerCol != board.length-1 && playerRow != safeRow) {
-                for(String opponent: opponentManPosition) {
-                    int[] opponentPos = Utility.getPosition(opponent);
-                    int opponentRow = opponentPos[1];
-
-                    if ((Player.WHITE.equals(player) && playerRow > opponentRow) || (Player.BLACK.equals(player) && playerRow < opponentRow)){
-                        safe = false;
-                        break;
-                    }
-                }
-            }
-            if (safe) count++;
-        }
-        return count;
-    }
-
-    // Return number of player's checkers that do not move from king area (prevent opponent to enter king area)
-    public int getPlayerKingAreaChecker() {
-        int count = 0;
-        for (String checker: playerManPosition) {
-            if (Player.WHITE.equals(player) && Utility.whiteKingArea.contains(checker)) {
-                count++;
-            } else if (Player.BLACK.equals(player) && Utility.blackKingArea.contains(checker)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    public void printState() {
-        System.out.println("Player: " + player.toString());
-        System.out.println("Mode: " + mode.toString());
-        System.out.println("timeRemaining: " + timeRemaining);
-        printBoard();
-    }
-
-    public void printBoard() {
-        System.out.println("==============================");
-        for(int r=0; r<board.length; r++) {
-            for(int c=0; c<board[r].length; c++) {
-                System.out.print(board[r][c]);
-            }
-            System.out.println("");
-        }
-    }
-
-    public Integer getPlayerCheckerSize() {
-        return playerManPosition.size() + playerKingPosition.size();
-    }
-
-    public Integer getOpponentCheckerSize() {
-        return opponentManPosition.size() + opponentKingPosition.size();
-    }
-
-    public String[][] getBoard() {
-        return board;
-    }
-
-    public void setIsPlayerTurn(boolean isPlayerTurn) {
-        this.isPlayerTurn = isPlayerTurn;
-    }
-
-    public boolean isInitialState() {
-        for(String label: Utility.whiteInitialLabels) {
-            int[] position = Utility.getPosition(label);
-            if (!board[position[1]][position[0]].equals("w")) return false;
-        }
-
-        for(String label: Utility.blackInitialLabels) {
-            int[] position = Utility.getPosition(label);
-            if (!board[position[1]][position[0]].equals("b")) return false;
-        }
-        return getPlayerCheckerSize() == 12 && getOpponentCheckerSize() == 12;
-    }
-
-    public Player getPlayer() {
-        return player;
-    }
-
-    public Player getOpponent() {
-        return opponent;
-    }
-
-    public Mode getMode() {
-        return mode;
-    }
-
-    public double getTimeRemaining() {
-        return timeRemaining;
-    }
-
-    public Set<String> getPlayerManPosition() {
-        return playerManPosition;
-    }
-
-    public Set<String> getPlayerKingPosition() {
-        return playerKingPosition;
-    }
-
-    public Set<String> getOpponentManPosition() {
-        return opponentManPosition;
-    }
-
-    public Set<String> getOpponentKingPosition() {
-        return opponentKingPosition;
-    }
-
-    public boolean isPlayerTurn() {
-        return isPlayerTurn;
-    }
-}
-
-enum Mode {
-    SINGLE,
-    GAME
-}
-
-enum Player {
-    WHITE,
-    BLACK
-}
-
-enum MoveType {
-    ONE("E"), JUMP("J");
-
-    private String name;
-    MoveType(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-}
-
-class MoveLog {
-    private MoveType moveType;
-    private String fromChecker;
-    private String toChecker;
-    private String from;
-    private String to;
-    private String captured;
-    private String capturedChecker;
-    private MoveLog moveLog;
-
-    public MoveLog(MoveType moveType, String fromChecker, String toChecker, String from, String to, String captured, String capturedChecker, MoveLog moveLog) {
-        this.moveType = moveType;
-        this.fromChecker = fromChecker;
-        this.toChecker = toChecker;
-        this.from = from;
-        this.to = to;
-        this.captured = captured;
-        this.capturedChecker = capturedChecker;
-        this.moveLog = moveLog;
-    }
-
-    public MoveType getMoveType() {
-        return moveType;
-    }
-
-    public String getFromChecker() {
-        return fromChecker;
-    }
-
-    public String getFrom() {
-        return from;
-    }
-
-    public String getTo() {
-        return to;
-    }
-
-    public String getCaptured() {
-        return captured;
-    }
-
-    public String getCapturedChecker() {
-        return capturedChecker;
-    }
-
-    public String getToChecker() {
-        return toChecker;
-    }
-
-    public MoveLog getMoveLog() {
-        return moveLog;
-    }
-
-    public void setMoveLog(MoveLog moveLog) {
-        this.moveLog = moveLog;
-    }
-
-    public void print() {
-        Stack<MoveLog> stack = new Stack<>();
-        MoveLog m = this;
-        while(m != null) {
-            stack.push(m);
-            m = m.getMoveLog();
-        }
-
-        while(!stack.isEmpty()) {
-            m = stack.pop();
-            System.out.println(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
-        }
-    }
-}
-
-class Move {
-    private MoveType moveType;
-    private String from;
-    private String to;
-    private String fromChecker;
-    private String toChecker;
-    private GameState state;
-    private Move move;
-
-    public Move(MoveType moveType, String from, String to, Move move, String fromChecker, String toChecker, GameState state) {
-        this.moveType = moveType;
-        this.from = from;
-        this.to = to;
-        this.move = move;
-        this.fromChecker = fromChecker;
-        this.toChecker = toChecker;
-        this.state = state;
-    }
-
-    public boolean isBecomeKing() {
-        return this.toChecker != null && this.fromChecker != null && !this.toChecker.equals(this.fromChecker);
-    }
-
-    public MoveType getMoveType() {
-        return moveType;
-    }
-
-    public String getFrom() {
-        return from;
-    }
-
-    public String getTo() {
-        return to;
-    }
-
-    public Move getMove() {
-        return move;
-    }
-
-    public void setMove(Move move) {
-        this.move = move;
-    }
-
-    public String getFromChecker() {
-        return fromChecker;
-    }
-
-    public String getToChecker() {
-        return toChecker;
-    }
-
-    public void setToChecker(String toChecker) {
-        this.toChecker = toChecker;
-    }
-
-    public GameState getState() {
-        return state;
-    }
-
-    public void setState(GameState state) {
-        this.state = state;
-    }
-
-    public List<String> print() {
-        Stack<Move> stack = new Stack<>();
-        Move m = this;
-        while(m != null) {
-            stack.push(m);
-            m = m.getMove();
-        }
-
-        List<String> results = new ArrayList<>();
-        while(!stack.isEmpty()) {
-            m = stack.pop();
-            if (m.getFrom() == null) continue;
-            results.add(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
-            System.out.println(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
-        }
-        return results;
-    }
-}
-
-class Utility {
-    public static String[][] boardLabel = {
-            {"a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"},
-            {"a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"},
-            {"a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"},
-            {"a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"},
-            {"a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"},
-            {"a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"},
-            {"a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"},
-            {"a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"}
-    };
-
-    public static String[] blackInitialLabels = {
-            "b8","d8","f8","h8",
-            "a7","c7","e7","g7",
-            "b6","d6","f6","h6"
-    };
-
-    public static String[] whiteInitialLabels = {
-            "a3","c3","e3","g3",
-            "b2","d2","f2","h2",
-            "a1","c1","e1","g1"
-    };
-
-    public static Set<String> whiteKingArea;
-    public static Set<String> blackKingArea;
-    static {
-        whiteKingArea = new HashSet<>();
-        whiteKingArea.add("b8");
-        whiteKingArea.add("d8");
-        whiteKingArea.add("f8");
-        whiteKingArea.add("h8");
-
-        blackKingArea = new HashSet<>();
-        blackKingArea.add("a1");
-        blackKingArea.add("c1");
-        blackKingArea.add("e1");
-        blackKingArea.add("g1");
-    }
-
-    public static String[] cols = {"a", "b", "c", "d", "e", "f", "g", "h"};
-
-    public static int[] getPosition(String label) {
-        char[] c = label.toCharArray();
-        return new int[] {c[0] - 'a', 7 - (c[1] - '1')};
-    }
-
-    public static String getLabel(int row, int col) {
-        return cols[col] + "" + (8 - row);
-    }
-
-    public static boolean isKingArea(Player player, int row, int col) {
-        String label = getLabel(row, col);
-        if (Player.WHITE.equals(player)) {
-            return whiteKingArea.contains(label);
-        } else {
-            return blackKingArea.contains(label);
-        }
     }
 }

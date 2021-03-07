@@ -1,4 +1,4 @@
-SINGLE
+GAME
 WHITE
 6.6
 ........

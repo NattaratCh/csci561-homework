@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -10,26 +11,34 @@ public class MasterGame {
     private static int noCaptureTime = 0;
     private static int noKingCrownTime = 0;
     private static Map<String, Integer> boardHistory = new HashMap<>();
+    private static boolean noMoves = false;
     public static void main(String[] args) {
-        double blackTime = 300;
-        double whiteTime = 300;
+        double blackTime = 100;
+        double whiteTime = 100;
         int i = 0;
         Player[] turn = {Player.BLACK, Player.WHITE};
         String[][] board = initializeBoard();
+        String boardStr = null;
 
-        while(i != 10) {
+        while(!isTerminal(board, boardStr, blackTime, whiteTime)) {
             capture = 0;
             king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
+                HomeworkNoPruning.main(new String[]{});
             } else {
                 writeInput(board, Player.WHITE, whiteTime);
+                Homework.main(new String[]{});
             }
 
-            Homework.main(new String[]{});
             List<String[]> moves = readMove();
-            applyMove(moves, board, turn[i % 2]);
-            String boardStr = getBoardString(board);
+            if (moves != null) {
+                applyMove(moves, board, turn[i % 2]);
+            } else {
+                noMoves = true;
+            }
+
+            boardStr = getBoardString(board);
             if (boardHistory.containsKey(boardStr)) {
                 boardHistory.put(boardStr, boardHistory.get(boardStr) + 1);
             } else {
@@ -55,7 +64,13 @@ public class MasterGame {
             if (king == 0) {
                 noKingCrownTime++;
             } else {
-                noCaptureTime = 0;
+                noKingCrownTime = 0;
+            }
+
+            if (turn[i % 2].equals(Player.BLACK)) {
+                writeResult(turn[i%2], i, board, moves, blackTime);
+            } else {
+                writeResult(turn[i%2], i, board, moves, whiteTime);
             }
 
             i++;
@@ -63,7 +78,61 @@ public class MasterGame {
         System.out.println("End Game");
     }
 
-    public static boolean isTerminal(String[][] board, String boardStr) {
+    public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time) {
+        File file = new File("./src/result.txt");
+        if (file.exists() && i == 0) {
+            file.delete();
+        }
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write("Round: " + (i+1));
+            br.write(System.lineSeparator());
+            br.write("Turn: " + player.toString() + System.lineSeparator());
+            br.write("Time remain: " + time + System.lineSeparator());
+
+            if (moves == null) {
+                br.write("LOSE Cannot move" + System.lineSeparator());
+            } else {
+                for (String[] move: moves) {
+                    br.write(move[0] + " " + move[1] + " " + move[2] + System.lineSeparator());
+                }
+            }
+
+
+            for(int r=0; r<board.length; r++) {
+                for(int c=0; c<board[r].length; c++) {
+                    br.write(board[r][c]);
+                }
+                br.write(System.lineSeparator());
+            }
+
+            br.write("===============================");
+            br.write(System.lineSeparator());
+
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public static boolean isTerminal(String[][] board, String boardStr, double blackTime, double whiteTime) {
+        if (noMoves) {
+            System.out.println("Terminated no moves");
+            return true;
+        }
+
+        if (whiteTime <= 0) {
+            System.out.println("Terminated white runs oout of time");
+            return true;
+        }
+        if (blackTime <= 0) {
+            System.out.println("Terminated black runs oout of time");
+            return true;
+        }
         // no capture for 50 times or no king for 50 times
         if (noCaptureTime >= 50) {
             System.out.println("Terminated no capture for 50 times");
@@ -77,6 +146,18 @@ public class MasterGame {
         int count = boardHistory.getOrDefault(boardStr, 0);
         if (count >= 3) {
             System.out.println("Terminated same board position 3 times");
+            return true;
+        }
+
+        // TODO Win conditions: one side cannot move
+        int whitePlayers = getPlayerSize(board, "w");
+        int blackPlayer = getPlayerSize(board, "b");
+        if (whitePlayers == 0) {
+            System.out.println("BLACK WIN!");
+            return true;
+        }
+        if (blackPlayer == 0) {
+            System.out.println("WHITE WIN!");
             return true;
         }
         return false;
@@ -153,6 +234,9 @@ public class MasterGame {
 
     public static List<String[]> readMove() {
         File file = new File("./src/output.txt");
+        if (!file.exists()) {
+            return null;
+        }
         BufferedReader reader;
         List<String[]> moves = new ArrayList<>();
         try {
@@ -163,6 +247,7 @@ public class MasterGame {
                 moves.add(value);
                 line = reader.readLine();
             }
+            file.delete();
             return moves;
         } catch (Exception e) {
             System.out.println("initialzeBoard: " + e.getMessage());
@@ -233,5 +318,15 @@ public class MasterGame {
             }
         }
         return sb.toString();
+    }
+
+    public static int getPlayerSize(String[][] board, String color) {
+        int count = 0;
+        for(int r=0; r<board.length; r++) {
+            for(int c=0; c<board[r].length; c++) {
+                if(board[r][c].equalsIgnoreCase(color)) count++;
+            }
+        }
+        return count;
     }
 }
