@@ -1,6 +1,4 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.*;
@@ -12,10 +10,25 @@ import java.util.concurrent.TimeUnit;
 
 public class Homework {
     public static void main(String[] args) {
-        getCPUTime();
-        CheckerGame checkerGame = new CheckerGame();
+        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        long startTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
+        System.out.println("startTime " + startTime);
+        CheckerGame checkerGame = new CheckerGame(threadMXBean, startTime);
         checkerGame.start();
-        getCPUTime();
+        writeTime(checkerGame.getUseTime());
+        long endTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
+        long timeUsed = TimeUnit.NANOSECONDS.toSeconds(endTime - startTime);
+        System.out.println("Time used: " + timeUsed);
+    }
+
+    private static void writeTime(double time) {
+        try {
+            FileWriter writer = new FileWriter("./src/time.txt");
+            writer.write(String.valueOf(time));
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private static float getCPUTime() {
@@ -38,18 +51,24 @@ public class Homework {
 }
 
 class CheckerGame {
+    private ThreadMXBean threadMXBean;
+    private long startTime;
     private Move bestMove;
     private Integer depthLimit;
     private int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
     private int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
 
-    public CheckerGame() {
+    public CheckerGame(ThreadMXBean threadMXBean, long startTime) {
         this.depthLimit = 1;
+        this.startTime = startTime;
+        this.threadMXBean = threadMXBean;
     }
 
     public void start() {
 
-        GameState gameState = readInput("./test-cases/input6.txt");
+        GameState gameState = readInput("./src/input.txt");
+        // TODO change input path
+        // GameState gameState = readInput("./test-cases/input1.txt");
         gameState.printState();
         nextMove(gameState);
     }
@@ -71,7 +90,7 @@ class CheckerGame {
 
             // Line 3 - time remaining
             line = reader.readLine().trim();
-            float timeRemaining = Float.valueOf(line);
+            double timeRemaining = Double.valueOf(line);
 
             // Line 4 - board state
             String[][] board = new String[boardSize][boardSize];
@@ -89,21 +108,55 @@ class CheckerGame {
         }
     }
 
+    public double getUseTime() {
+        long currentTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
+        System.out.println("currentTime " + currentTime);
+        return (double) TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
+    }
+
+    public double getGameRemainingTime(GameState state) {
+        return state.getTimeRemaining() - getUseTime();
+    }
+
     public void nextMove(GameState gameState) {
         minimax(gameState);
+        writeOutput();
     }
 
     public void minimax(GameState gameState) {
+        if (Mode.GAME.equals(gameState.getMode())) {
+            if (gameState.getTimeRemaining() < 1.0) {
+                depthLimit = 1;
+            } else if (gameState.getTimeRemaining() < 50) {
+                depthLimit = 2;
+            } else {
+                depthLimit = 3;
+            }
+        }
+
         if (gameState.isInitialState()) {
             depthLimit = 1;
-        } else {
-            // TODO
-            depthLimit = 5;
         }
+
+
         System.out.println("minimax depth limit: " + depthLimit);
         Integer value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0);
         System.out.println("value: " + value);
-        bestMove.print();
+    }
+
+    private void writeOutput() {
+        List<String> results = bestMove.print();
+
+        try {
+            // TODO change output path
+            FileWriter writer = new FileWriter("./src/output.txt");
+            for(String line: results) {
+                writer.write(line + System.lineSeparator());
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     // Player
@@ -148,6 +201,12 @@ class CheckerGame {
 
             if (value >= beta) return value;
             alpha = Math.max(alpha, value);
+
+            if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
+                return value;
+            } else if (Mode.GAME.equals(state.getMode())) {
+                // TODO
+            }
         }
         return value;
     }
@@ -181,6 +240,12 @@ class CheckerGame {
 
             if (value <= alpha) return alpha;
             beta = Math.min(beta, value);
+
+            if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
+                return value;
+            } else if (Mode.GAME.equals(state.getMode())) {
+                // TODO
+            }
         }
         return value;
     }
@@ -599,14 +664,14 @@ class GameState {
     private Player player;
     private Player opponent;
     private Mode mode;
-    private float timeRemaining;
+    private double timeRemaining;
     private Set<String> playerManPosition;
     private Set<String> playerKingPosition;
     private Set<String> opponentManPosition;
     private Set<String> opponentKingPosition;
     private boolean isPlayerTurn;
 
-    public GameState(String[][] board, Player player, Mode mode, float timeRemaining, boolean isPlayerTurn) {
+    public GameState(String[][] board, Player player, Mode mode, double timeRemaining, boolean isPlayerTurn) {
         this.board = board;
         this.player = player;
         this.opponent = Player.WHITE.equals(player) ? Player.BLACK : Player.WHITE;
@@ -771,7 +836,7 @@ class GameState {
         return mode;
     }
 
-    public float getTimeRemaining() {
+    public double getTimeRemaining() {
         return timeRemaining;
     }
 
@@ -954,7 +1019,7 @@ class Move {
         this.state = state;
     }
 
-    public void print() {
+    public List<String> print() {
         Stack<Move> stack = new Stack<>();
         Move m = this;
         while(m != null) {
@@ -962,11 +1027,14 @@ class Move {
             m = m.getMove();
         }
 
+        List<String> results = new ArrayList<>();
         while(!stack.isEmpty()) {
             m = stack.pop();
             if (m.getFrom() == null) continue;
+            results.add(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
             System.out.println(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
         }
+        return results;
     }
 }
 
