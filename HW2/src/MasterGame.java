@@ -1,12 +1,15 @@
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by nuning on 3/6/21.
  */
 public class MasterGame {
+    private static int capture = 0;
+    private static int king = 0;
+    private static int noCaptureTime = 0;
+    private static int noKingCrownTime = 0;
+    private static Map<String, Integer> boardHistory = new HashMap<>();
     public static void main(String[] args) {
         double blackTime = 300;
         double whiteTime = 300;
@@ -15,6 +18,8 @@ public class MasterGame {
         String[][] board = initializeBoard();
 
         while(i != 10) {
+            capture = 0;
+            king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
             } else {
@@ -24,6 +29,12 @@ public class MasterGame {
             Homework.main(new String[]{});
             List<String[]> moves = readMove();
             applyMove(moves, board, turn[i % 2]);
+            String boardStr = getBoardString(board);
+            if (boardHistory.containsKey(boardStr)) {
+                boardHistory.put(boardStr, boardHistory.get(boardStr) + 1);
+            } else {
+                boardHistory.put(boardStr, 1);
+            }
 
             System.out.println("ROUND: " + (i + 1) + " turn: " + turn[i % 2].toString());
             printBoard(board);
@@ -35,12 +46,39 @@ public class MasterGame {
                 whiteTime -= usedTime;
             }
 
+            if (capture == 0) {
+                noCaptureTime++;
+            } else {
+                noCaptureTime = 0;
+            }
+
+            if (king == 0) {
+                noKingCrownTime++;
+            } else {
+                noCaptureTime = 0;
+            }
+
             i++;
         }
         System.out.println("End Game");
     }
 
-    public static boolean isTerminal() {
+    public static boolean isTerminal(String[][] board, String boardStr) {
+        // no capture for 50 times or no king for 50 times
+        if (noCaptureTime >= 50) {
+            System.out.println("Terminated no capture for 50 times");
+            return true;
+        }
+        if (noKingCrownTime >= 50) {
+            System.out.println("Terminated no king crown for 50 times");
+            return true;
+        }
+        // same board position 3 times
+        int count = boardHistory.getOrDefault(boardStr, 0);
+        if (count >= 3) {
+            System.out.println("Terminated same board position 3 times");
+            return true;
+        }
         return false;
     }
 
@@ -65,6 +103,8 @@ public class MasterGame {
             int[] fromPosition = Utility.getPosition(from);
             int[] toPosition = Utility.getPosition(to);
 
+            if (kingArea.contains(to)) king++;
+
             if(action.equals("J")) {
                 board[toPosition[1]][toPosition[0]] = kingArea.contains(to) ? board[fromPosition[1]][fromPosition[0]].toUpperCase() : board[fromPosition[1]][fromPosition[0]];
                 board[fromPosition[1]][fromPosition[0]] = ".";
@@ -75,6 +115,7 @@ public class MasterGame {
                     // Right-Down
                     for(int r=fromPosition[1]+1; r<toPosition[1]; r++) {
                         for(int c=fromPosition[0]+1; c<toPosition[0]; c++) {
+                            if (!board[r][c].equals(".")) capture++;
                             board[r][c] = ".";
                         }
                     }
@@ -82,6 +123,7 @@ public class MasterGame {
                     // Right-Up
                     for(int r=fromPosition[1]-1; r>toPosition[1]; r--) {
                         for(int c=fromPosition[0]+1; c<toPosition[0]; c++) {
+                            if (!board[r][c].equals(".")) capture++;
                             board[r][c] = ".";
                         }
                     }
@@ -89,6 +131,7 @@ public class MasterGame {
                     // Left-Up
                     for(int r=fromPosition[1]-1; r>toPosition[1]; r--) {
                         for(int c=fromPosition[0]-1; c>toPosition[0]; c--) {
+                            if (!board[r][c].equals(".")) capture++;
                             board[r][c] = ".";
                         }
                     }
@@ -96,6 +139,7 @@ public class MasterGame {
                     // Left-Down
                     for(int r=fromPosition[1]+1; r<toPosition[1]; r++) {
                         for(int c=fromPosition[0]-1; c>toPosition[0]; c--) {
+                            if (!board[r][c].equals(".")) capture++;
                             board[r][c] = ".";
                         }
                     }
@@ -177,5 +221,17 @@ public class MasterGame {
             System.out.println("initialzeBoard: " + e.getMessage());
             return 0;
         }
+    }
+
+    public static String getBoardString(String[][] board) {
+        StringBuilder sb = new StringBuilder();
+        for(int r=0; r<board.length; r++) {
+            for(int c=0; c<board[r].length; c++) {
+                if(!board[r][c].equals(".")) {
+                    sb.append(board[r][c] + "" + Utility.getLabel(r, c) + "|");
+                }
+            }
+        }
+        return sb.toString();
     }
 }

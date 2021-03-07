@@ -16,9 +16,6 @@ public class Homework {
         CheckerGame checkerGame = new CheckerGame(threadMXBean, startTime);
         checkerGame.start();
         writeTime(checkerGame.getUseTime());
-        long endTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
-        long timeUsed = TimeUnit.NANOSECONDS.toSeconds(endTime - startTime);
-        System.out.println("Time used: " + timeUsed);
     }
 
     private static void writeTime(double time) {
@@ -66,7 +63,7 @@ class CheckerGame {
 
     public void start() {
 
-        GameState gameState = readInput("./src/input.txt");
+        GameState gameState = readInput("./test-cases/input2.txt");
         // TODO change input path
         // GameState gameState = readInput("./test-cases/input1.txt");
         gameState.printState();
@@ -110,8 +107,8 @@ class CheckerGame {
 
     public double getUseTime() {
         long currentTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
-        System.out.println("currentTime " + currentTime);
-        return (double) TimeUnit.NANOSECONDS.toSeconds(currentTime - startTime);
+        System.out.println("usedTime " + (currentTime - startTime)/1000000000.0);
+        return (currentTime - startTime)/1000000000.0;
     }
 
     public double getGameRemainingTime(GameState state) {
@@ -135,12 +132,13 @@ class CheckerGame {
         }
 
         if (gameState.isInitialState()) {
+            System.out.println("Initial state");
             depthLimit = 1;
         }
 
 
         System.out.println("minimax depth limit: " + depthLimit);
-        Integer value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0);
+        Double value = maxValue(gameState, Double.MIN_VALUE, Double.MAX_VALUE, 0);
         System.out.println("value: " + value);
     }
 
@@ -160,21 +158,21 @@ class CheckerGame {
     }
 
     // Player
-    public Integer maxValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Double maxValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("maxValue depth " + depth);
         if (isTerminal(state)) {
             System.out.println("terminal");
-            return state.utility();
+            return utility(state);
         }
 
         if (depth == depthLimit) {
             System.out.println("reach depth limit");
-            return state.evaluation();
+            return evaluation(state);
         }
 
-        Integer value = Integer.MIN_VALUE;
-        Integer next = null;
+        Double value = Double.MIN_VALUE;
+        Double next = null;
         List<Move> possibleMoves = getAllPossibleMoves(state);
         for (Move move: possibleMoves) {
             GameState nextState = move.getState();
@@ -184,9 +182,7 @@ class CheckerGame {
                 nextState.setIsPlayerTurn(false);
                 next = minValue(nextState, alpha, beta, depth+1);
             } else {
-                System.out.println("player moves");
-                nextState.setIsPlayerTurn(true);
-                next = maxValue(nextState, alpha, beta, depth+1);
+                return value;
             }
 
             System.out.println("maxValue value: " + next);
@@ -212,18 +208,18 @@ class CheckerGame {
     }
 
     // Opponent
-    public Integer minValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Double minValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("minValue depth " + depth);
         if (isTerminal(state)) {
-            return state.utility();
+            return utility(state);
         }
 
         if (depth == depthLimit) {
-            return state.evaluation();
+            return evaluation(state);
         }
 
-        Integer value = Integer.MAX_VALUE;
+        Double value = Double.MAX_VALUE;
         List<Move> possibleMoves = getAllPossibleMoves(state);
         for (Move move: possibleMoves) {
             GameState nextState = move.getState();
@@ -232,8 +228,7 @@ class CheckerGame {
                 nextState.setIsPlayerTurn(true);
                 value = Math.min(value, maxValue(nextState, alpha, beta, depth+1));
             } else {
-                nextState.setIsPlayerTurn(false);
-                value = Math.min(value, minValue(nextState, alpha, beta, depth+1));
+                return value;
             }
             System.out.println("minValue value: " + value);
             System.out.println("----------------------------");
@@ -248,6 +243,35 @@ class CheckerGame {
             }
         }
         return value;
+    }
+
+    public Double utility(GameState gameState) {
+        if (!canOpponentContinue(gameState) || gameState.getOpponentCheckerSize() == 0) {
+            // Player wins
+            return 1000000.0;
+        } else if (!canPlayerContinue(gameState) || gameState.getPlayerCheckerSize() == 0) {
+            // Opponent wins
+            return -1000000.0;
+        }
+        System.out.println("utility return 0.0");
+        return 0.0;
+    }
+
+    public Double evaluation(GameState gameState) {
+        // TODO
+        Set<String> opponentKing = gameState.getOpponentKingPosition();
+        Set<String> playerKing = gameState.getPlayerKingPosition();
+        int playerCheckerSize = gameState.getPlayerCheckerSize();
+        int opponentCheckerSize = gameState.getPlayerCheckerSize();
+        if (opponentKing.isEmpty()) {
+            return (playerCheckerSize - opponentCheckerSize) * 50.0 + gameState.getPlayerSafeCheckers() * 10.0 + playerKing.size() * 20.0 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
+        } else {
+            return (playerCheckerSize - opponentCheckerSize) * 50.0 + playerKing.size() * 20.0 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
+        }
+    }
+
+    private Integer distance(int player, int opponent) {
+        return Math.abs(player - opponent);
     }
 
     public List<Move> getPossibleJump(GameState gameState, int currentRow, int currentCol, int[][] captureDirs) {
@@ -580,6 +604,10 @@ class CheckerGame {
     }
 
     public boolean canPlayerContinue(GameState gameState) {
+        if (gameState.getPlayerCheckerSize() == 0) {
+            return false;
+        }
+
         int[][] dirs;
         int[][] kingDirs = new int[][]{{1, -1}, {-1, -1}, {1, 1}, {-1, 1}, {2, -2}, {-2, -2}, {2, 2}, {-2, 2}};
         if (Player.WHITE.equals(gameState.getPlayer())) {
@@ -611,8 +639,10 @@ class CheckerGame {
     }
 
     public boolean canOpponentContinue(GameState gameState) {
-//        System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-//        gameState.printBoard();
+        if (gameState.getOpponentCheckerSize() == 0) {
+            return false;
+        }
+
         int[][] dirs;
         int[][] kingDirs = new int[][]{{1, -1}, {-1, -1}, {1, 1}, {-1, 1}, {2, -2}, {-2, -2}, {2, 2}, {-2, 2}};
         if (Player.WHITE.equals(gameState.getOpponent())) {
@@ -726,7 +756,6 @@ class GameState {
     }
 
     public Integer utility() {
-        // TODO
         return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 500;
     }
 
@@ -738,6 +767,10 @@ class GameState {
         } else {
             return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + playerKingPosition.size() * 20 + getPlayerKingAreaChecker() + playerManPosition.size();
         }
+    }
+
+    private Integer distance(int player, int opponent) {
+        return Math.abs(player - opponent);
     }
 
     public int getPlayerSafeCheckers() {
