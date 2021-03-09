@@ -32,7 +32,7 @@ public class Homework {
 class CheckerGame {
     private ThreadMXBean threadMXBean;
     private long startTime;
-    private Set<String> playHistory;
+    private Map<String, Integer> playHistory;
     private Move bestMove;
     private Integer bestValue;
     private Integer depthLimit;
@@ -43,7 +43,7 @@ class CheckerGame {
         this.depthLimit = 1;
         this.startTime = startTime;
         this.threadMXBean = threadMXBean;
-        playHistory = new HashSet<>();
+        playHistory = new HashMap<>();
     }
 
     public void start() {
@@ -51,7 +51,7 @@ class CheckerGame {
         GameState gameState = readInput("./src/input.txt");
         setPlayHistory();
         // TODO change input path
-        // GameState gameState = readInput("./test-cases/input9.txt");
+        // GameState gameState = readInput("./test-cases/input10.txt");
         gameState.printState();
         nextMove(gameState);
     }
@@ -96,11 +96,12 @@ class CheckerGame {
         if (!file.exists()) return;
 
         BufferedReader reader;
+        int i=0;
         try {
             reader = new BufferedReader(new FileReader(file));
             String line = reader.readLine();
             while (line != null) {
-                playHistory.add(line.trim());
+                playHistory.put(line.trim(), i++);
                 line = reader.readLine();
             }
         } catch (Exception e) {
@@ -198,7 +199,7 @@ class CheckerGame {
     }
 
     private void writePlayData() {
-        if (bestMove == null) return;
+        if (bestMove == null || MoveType.JUMP.equals(bestMove.getMoveType())) return;
         File file = new File("./player/playdata.txt");
         FileWriter fr = null;
         try {
@@ -226,11 +227,9 @@ class CheckerGame {
 
         Integer value = Integer.MIN_VALUE;
         Integer next = null;
-        List<Move> possibleMoves = getAllPossibleMoves(state);
-        for (Move move: possibleMoves) {
-            String nextMove = move.getFrom() + " " + move.getTo();
-            String inverseNextMove = move.getFrom() + " " + move.getTo();
-
+        PriorityQueue<Move> possibleMoves = getAllPossibleMoves(state);
+        while (!possibleMoves.isEmpty()) {
+            Move move = possibleMoves.poll();
             GameState nextState = move.getState();
             nextState.printBoard();
             System.out.println("opponent moves");
@@ -246,13 +245,7 @@ class CheckerGame {
                 System.out.println("maxValue next > value bestMove " + bestMove);
                 value = next;
                 if (depth == 0) {
-                    if (bestMove == null && bestValue == null) {
-                        bestMove = move;
-                        bestValue = value;
-                        System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
-                        System.out.println("## best value: " + bestValue);
-                    } else if (next > bestValue && (playHistory.contains(nextMove) || playHistory.contains(inverseNextMove))) {
-                        // avoid move in loop
+                    if ((bestMove == null && bestValue == null) || next > bestValue) {
                         bestMove = move;
                         bestValue = value;
                         System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
@@ -287,8 +280,9 @@ class CheckerGame {
         }
 
         Integer value = Integer.MAX_VALUE;
-        List<Move> possibleMoves = getAllPossibleMoves(state);
-        for (Move move: possibleMoves) {
+        PriorityQueue<Move> possibleMoves = getAllPossibleMoves(state);
+        while (!possibleMoves.isEmpty()) {
+            Move move = possibleMoves.poll();
             GameState nextState = move.getState();
             nextState.printBoard();
             nextState.setIsPlayerTurn(true);
@@ -445,6 +439,7 @@ class CheckerGame {
                 Move nextMove = new Move(MoveType.JUMP, prevMove.getTo(), Utility.getLabel(row, col), prevMove, prevMove.getToChecker(), null, null);
                 applyMove(gameState, nextMove);
                 nextMove.setState(gameState);
+                nextMove.setCapture(prevMove.getCapture() + 1);
                 board = gameState.getBoard();
                 String toChecker =  board[row][col];
                 nextMove.setToChecker(toChecker);
@@ -562,7 +557,7 @@ class CheckerGame {
         }
     }
 
-    public List<Move> getAllPossibleMoves(GameState gameState) {
+    public PriorityQueue<Move> getAllPossibleMoves(GameState gameState) {
         int[][] regularDirs;
         int[][] captureDirs;
 
@@ -579,8 +574,18 @@ class CheckerGame {
             captureDirs = new int[][]{{2, 2}, {-2, 2}};
         }
 
-        List<Move> regularMoves = new ArrayList<>();
-        List<Move> captureMoves = new ArrayList<>();
+        PriorityQueue<Move> regularMoves = new PriorityQueue<>((a, b) -> {
+            if (a.getSeenIndex(playHistory) == b.getSeenIndex(playHistory)) {
+                // TODO order of move if they are not found in playdata
+                return 1;
+            } else {
+                // return position that pass earlier
+                return a.getSeenIndex(playHistory).compareTo(b.getSeenIndex(playHistory));
+            }
+        });
+
+        // Prioritize jump moves by number of captured checkers
+        PriorityQueue<Move> captureMoves = new PriorityQueue<>((a, b) -> b.getCapture().compareTo(a.getCapture()));
         GameState cloneState;
 
         // Get all possible moves of man checkers
@@ -611,7 +616,7 @@ class CheckerGame {
                     }
                 }
             } else {
-                captureMoves = jumps;
+                captureMoves.addAll(jumps);
             }
         }
 
@@ -639,7 +644,7 @@ class CheckerGame {
                     }
                 }
             } else {
-                captureMoves = jumps;
+                captureMoves.addAll(jumps);
             }
         }
 
@@ -1168,6 +1173,7 @@ class Move {
     private String toChecker;
     private GameState state;
     private Move move;
+    private Integer capture;
 
     public Move(MoveType moveType, String from, String to, Move move, String fromChecker, String toChecker, GameState state) {
         this.moveType = moveType;
@@ -1177,6 +1183,7 @@ class Move {
         this.fromChecker = fromChecker;
         this.toChecker = toChecker;
         this.state = state;
+        this.capture = 0;
     }
 
     public boolean isBecomeKing() {
@@ -1213,6 +1220,27 @@ class Move {
 
     public void setToChecker(String toChecker) {
         this.toChecker = toChecker;
+    }
+
+    public Integer getSeenIndex(Map<String, Integer> playerHistory) {
+        String move = this.getFrom() + " " + this.getTo();
+        String reverseMove = this.getTo() + " " + this.getFrom();
+
+        if (playerHistory.containsKey(move)) {
+            return playerHistory.get(move);
+        }
+        if (playerHistory.containsKey(reverseMove)) {
+            return playerHistory.get(reverseMove);
+        }
+        return 0;
+    }
+
+    public Integer getCapture() {
+        return capture;
+    }
+
+    public void setCapture(Integer capture) {
+        this.capture = capture;
     }
 
     public GameState getState() {
