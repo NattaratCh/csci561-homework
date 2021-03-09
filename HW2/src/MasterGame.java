@@ -20,15 +20,26 @@ public class MasterGame {
         String[][] board = initializeBoard();
         String boardStr = null;
 
+        File playerFile = new File("./player/playdata.txt");
+        if (playerFile.exists()) {
+            playerFile.delete();
+        }
+
+        File opponentFile = new File("./opponent/playdata.txt");
+        if (opponentFile.exists()) {
+            opponentFile.delete();
+        }
+
         while(!isTerminal(board, boardStr, blackTime, whiteTime)) {
+            System.out.println("ROUND: " + (i + 1) + " turn: " + turn[i % 2].toString());
             capture = 0;
             king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
-                HomeworkNoPruning.main(new String[]{});
+                Homework.main(new String[]{});
             } else {
                 writeInput(board, Player.WHITE, whiteTime);
-                Homework.main(new String[]{});
+                HomeworkNoPruning.main(new String[]{});
             }
 
             List<String[]> moves = readMove();
@@ -45,7 +56,6 @@ public class MasterGame {
                 boardHistory.put(boardStr, 1);
             }
 
-            System.out.println("ROUND: " + (i + 1) + " turn: " + turn[i % 2].toString());
             printBoard(board);
 
             double usedTime = getUsedTime();
@@ -174,9 +184,10 @@ public class MasterGame {
     }
 
     public static void applyMove(List<String[]> moves, String[][] board, Player player) {
-        System.out.println("applyMove");
+        System.out.println("MasterGame applyMove");
         Set<String> kingArea = Player.BLACK.equals(player) ? Utility.blackKingArea : Utility.whiteKingArea;
         for(String[] move: moves) {
+            System.out.println("MasterGame applyMove " + move[0] + " " + move[1] + " " + move[2]);
             String action = move[0];
             String from = move[1];
             String to = move[2];

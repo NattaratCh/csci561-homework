@@ -27,30 +27,14 @@ public class HomeworkNoPruning {
             e.printStackTrace();
         }
     }
-
-    private static float getCPUTime() {
-        ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-        long[] threadIds = threadMXBean.getAllThreadIds();
-        long nanotime = 0;
-        for (long id: threadIds) {
-            nanotime += threadMXBean.getThreadCpuTime(id);
-        }
-
-        long secondTime = TimeUnit.NANOSECONDS.toSeconds(nanotime);
-        System.out.println("###### All threads CPU time ######");
-        System.out.println("Time (ns): " + nanotime);
-        System.out.println("Time (s): " + secondTime);
-        System.out.println("###### Current thread CPU time ######");
-        System.out.println("Time (ns): " + threadMXBean.getCurrentThreadCpuTime());
-        System.out.println("Time (s): " + TimeUnit.NANOSECONDS.toSeconds(threadMXBean.getCurrentThreadCpuTime()));
-        return secondTime;
-    }
 }
 
 class CheckerGameNoPruning {
     private ThreadMXBean threadMXBean;
     private long startTime;
+    private Set<String> playHistory;
     private Move bestMove;
+    private Integer bestValue;
     private Integer depthLimit;
     private int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
     private int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
@@ -59,13 +43,15 @@ class CheckerGameNoPruning {
         this.depthLimit = 1;
         this.startTime = startTime;
         this.threadMXBean = threadMXBean;
+        playHistory = new HashSet<>();
     }
 
     public void start() {
 
         GameState gameState = readInput("./src/input.txt");
+        setPlayHistory();
         // TODO change input path
-        // GameState gameState = readInput("./test-cases/input1.txt");
+        // GameState gameState = readInput("./test-cases/input8.txt");
         gameState.printState();
         nextMove(gameState);
     }
@@ -105,6 +91,23 @@ class CheckerGameNoPruning {
         }
     }
 
+    public void setPlayHistory() {
+        File file = new File("./opponent/playdata.txt");
+        if (!file.exists()) return;
+
+        BufferedReader reader;
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            String line = reader.readLine();
+            while (line != null) {
+                playHistory.add(line.trim());
+                line = reader.readLine();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public double getUseTime() {
         long currentTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
         System.out.println("usedTime " + (currentTime - startTime)/1000000000.0);
@@ -117,7 +120,40 @@ class CheckerGameNoPruning {
 
     public void nextMove(GameState gameState) {
         minimax(gameState);
+        System.out.println("============= next move pruning ============");
+        gameState.printState();
+        writeBoard(gameState);
         writeOutput();
+        writePlayData();
+    }
+
+    private void writeBoard(GameState gameState) {
+        File file = new File("./opponent/result_agent.txt");
+
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write(System.lineSeparator());
+            br.write("Time remain: " + gameState.getTimeRemaining() + System.lineSeparator());
+
+            String[][] board = gameState.getBoard();
+            for(int r=0; r<board.length; r++) {
+                for(int c=0; c<board[r].length; c++) {
+                    br.write(board[r][c]);
+                }
+                br.write(System.lineSeparator());
+            }
+
+            br.write("===============================");
+            br.write(System.lineSeparator());
+
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public void minimax(GameState gameState) {
@@ -144,7 +180,7 @@ class CheckerGameNoPruning {
 
     private void writeOutput() {
         if (bestMove == null) {
-            System.out.println("No pruning agent : Cannot move");
+            System.out.println("No pruning Agent: Cannot move");
             return;
         }
         List<String> results = bestMove.print();
@@ -161,17 +197,30 @@ class CheckerGameNoPruning {
         }
     }
 
+    private void writePlayData() {
+        if (bestMove == null) return;
+        File file = new File("./opponent/playdata.txt");
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write(bestMove.getFrom() + " " + bestMove.getTo() + System.lineSeparator());
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     // Player
     public Integer maxValue(GameState state, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("maxValue depth " + depth);
         if (isTerminal(state)) {
-            System.out.println("terminal");
             return utility(state);
         }
 
         if (depth == depthLimit) {
-            System.out.println("reach depth limit");
             return evaluation(state);
         }
 
@@ -179,27 +228,38 @@ class CheckerGameNoPruning {
         Integer next = null;
         List<Move> possibleMoves = getAllPossibleMoves(state);
         for (Move move: possibleMoves) {
+            String nextMove = move.getFrom() + " " + move.getTo();
+            String inverseNextMove = move.getFrom() + " " + move.getTo();
+
             GameState nextState = move.getState();
             nextState.printBoard();
-            if (canOpponentContinue(nextState)) {
-                System.out.println("opponent moves");
-                nextState.setIsPlayerTurn(false);
-                next = minValue(nextState, depth+1);
-            } else {
-                bestMove = move;
-                return value;
-            }
+            System.out.println("opponent moves");
+            nextState.setIsPlayerTurn(false);
+            next = minValue(nextState, depth+1);
 
-            System.out.println("maxValue value: " + next);
+            System.out.println("moves " + move.getFrom() + " -> " + move.getTo());
+            System.out.println("maxValue value: " + value);
+            System.out.println("maxValue next: " + next);
             System.out.println("----------------------------");
 
             if (next > value) {
+                System.out.println("maxValue next > value bestMove " + bestMove);
                 value = next;
-                if (depth == 0) bestMove = move;
-                System.out.println("## depth: " + depth);
-                System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
+                if (depth == 0) {
+                    if (bestMove == null && bestValue == null) {
+                        bestMove = move;
+                        bestValue = value;
+                        System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
+                        System.out.println("## best value: " + bestValue);
+                    } else if (next > bestValue && (playHistory.contains(nextMove) || playHistory.contains(inverseNextMove))) {
+                        // avoid move in loop
+                        bestMove = move;
+                        bestValue = value;
+                        System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
+                        System.out.println("## best value: " + bestValue);
+                    }
+                }
             }
-
 
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
                 return value;
@@ -219,7 +279,8 @@ class CheckerGameNoPruning {
         }
 
         if (depth == depthLimit) {
-            return evaluation(state);
+            int eval = evaluation(state);
+            return eval;
         }
 
         Integer value = Integer.MAX_VALUE;
@@ -227,12 +288,8 @@ class CheckerGameNoPruning {
         for (Move move: possibleMoves) {
             GameState nextState = move.getState();
             nextState.printBoard();
-            if (canPlayerContinue(nextState)) {
-                nextState.setIsPlayerTurn(true);
-                value = Math.min(value, maxValue(nextState, depth+1));
-            } else {
-                return value;
-            }
+            nextState.setIsPlayerTurn(true);
+            value = Math.min(value, maxValue(nextState, depth+1));
             System.out.println("minValue value: " + value);
             System.out.println("----------------------------");
 
@@ -253,21 +310,90 @@ class CheckerGameNoPruning {
             // Opponent wins
             return -1000000;
         }
-        System.out.println("utility return 0.0");
         return 0;
     }
 
     public Integer evaluation(GameState gameState) {
-        // TODO
-        Set<String> opponentKing = gameState.getOpponentKingPosition();
-        Set<String> playerKing = gameState.getPlayerKingPosition();
-        int playerCheckerSize = gameState.getPlayerCheckerSize();
-        int opponentCheckerSize = gameState.getPlayerCheckerSize();
-        if (opponentKing.isEmpty()) {
-            return (playerCheckerSize - opponentCheckerSize) * 50 + gameState.getPlayerSafeCheckers() * 10 + playerKing.size() * 20 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
-        } else {
-            return (playerCheckerSize - opponentCheckerSize) * 50 + playerKing.size() * 20 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
+        // TODO rewrite evaluation function
+        int kingWeight = 20;
+        int manWeight = 5;
+
+        Integer blackValue = 0;
+        Integer whiteValue = 0;
+
+        Set<String> blackKing = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
+        Set<String> whiteKing = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
+        Set<String> blackMan = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
+        Set<String> whiteMan = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
+
+
+        whiteValue += whiteKing.size() * kingWeight;
+        // Advance man are more value than man in the back of board
+        for(String whiteChecker: whiteMan) {
+            int[] position = Utility.getPosition(whiteChecker);
+            whiteValue += (manWeight + (7-position[1]));
         }
+
+        // Calculate distance between all white kings and all black pieces (man+king)
+        // The distance should be small if we want to attack
+        if (whiteKing.size() > blackKing.size()) {
+            int whiteDist = calculateDistance(whiteKing, blackKing, blackMan);
+            whiteDist = whiteDist / whiteKing.size();
+            whiteValue += whiteDist;
+        }
+
+
+        blackValue += blackKing.size() * kingWeight;
+        for(String blackChecker: blackMan) {
+            int[] position = Utility.getPosition(blackChecker);
+            blackValue += (manWeight + position[1]);
+        }
+
+        // Calculate distance between all black kings and all white pieces (man+king)
+        if (blackKing.size() > whiteKing.size()) {
+            int blackDist = calculateDistance(blackKing, whiteKing, whiteMan);
+            blackDist = blackDist / blackKing.size();
+            blackValue += blackDist;
+        }
+
+        System.out.println("evaluation: black " + blackValue + " white " + whiteValue);
+
+        if (Player.BLACK.equals(gameState.getPlayer())) {
+            return blackValue - whiteValue;
+        } else {
+            return whiteValue - blackValue;
+        }
+
+//        Set<String> opponentKing = gameState.getOpponentKingPosition();
+//        Set<String> playerKing = gameState.getPlayerKingPosition();
+//        int playerCheckerSize = gameState.getPlayerCheckerSize();
+//        int opponentCheckerSize = gameState.getPlayerCheckerSize();
+//        if (opponentKing.isEmpty()) {
+//            return (playerCheckerSize - opponentCheckerSize) * 50 + gameState.getPlayerSafeCheckers() * 10 + playerKing.size() * 20 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
+//        } else {
+//            return (playerCheckerSize - opponentCheckerSize) * 50 + playerKing.size() * 20 + gameState.getPlayerKingAreaChecker() + gameState.getPlayerManPosition().size();
+//        }
+    }
+
+    private Integer calculateDistance(Set<String> playerKing, Set<String> opponentKing, Set<String> opponentMan) {
+        int dist = 0;
+        for(String playerChecker: playerKing) {
+            int[] player = Utility.getPosition(playerChecker);
+            for(String opponentChecker: opponentMan) {
+                int[] opponent = Utility.getPosition(opponentChecker);
+                dist += (7 - distance(player[0], opponent[0])) + (7 - distance(player[1], opponent[1]));
+            }
+            for(String opponentChecker: opponentMan) {
+                int[] opponent = Utility.getPosition(opponentChecker);
+                dist +=  (7 - distance(player[0], opponent[0])) + (7 - distance(player[1], opponent[1]));
+            }
+        }
+
+        return dist;
+    }
+
+    private Integer distance(int player, int opponent) {
+        return Math.abs(player - opponent);
     }
 
     public List<Move> getPossibleJump(GameState gameState, int currentRow, int currentCol, int[][] captureDirs) {
@@ -336,25 +462,41 @@ class CheckerGameNoPruning {
 
         Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
         boolean isMoveToKingArea = Utility.isKingArea(currentPlayer, newRow, newCol);
+        boolean isKing = isKingChecker(board[oldRow][oldCol]);
+        boolean isNewKingCrowned = isMoveToKingArea && !isKing;
 
-        if (isMoveToKingArea) {
+        if (isNewKingCrowned) {
+            // Man moves to king area and becomes king
             System.out.println("applyNewMove move to king " + move.getFrom() + " " + move.getTo() );
             board[newRow][newCol] = board[oldRow][oldCol].toUpperCase();
             if (currentPlayer.equals(gameState.getPlayer())) {
-                gameState.getPlayerKingPosition().add(move.getTo());
-                gameState.getPlayerManPosition().remove(move.getFrom());
+                gameState.addPlayerKingPosition(move.getTo());
+                gameState.removePlayerManPosition(move.getFrom());
             } else {
-                gameState.getOpponentKingPosition().add(move.getTo());
-                gameState.getOpponentManPosition().remove(move.getFrom());
+                gameState.addOpponentKingPosition(move.getTo());
+                gameState.removeOpponentManPosition(move.getFrom());
+            }
+        } else if (isKing) {
+            // King moves
+            System.out.println("applyNewMove king move " + move.getFrom() + " " + move.getTo() );
+            board[newRow][newCol] = board[oldRow][oldCol].toUpperCase();
+            if (currentPlayer.equals(gameState.getPlayer())) {
+                gameState.addPlayerKingPosition(move.getTo());
+                gameState.removePlayerKingPosition(move.getFrom());
+            } else {
+                gameState.addOpponentKingPosition(move.getTo());
+                gameState.removeOpponentKingPosition(move.getFrom());
             }
         } else {
+            // Man moves
+            System.out.println("applyNewMove man move " + move.getFrom() + " " + move.getTo() );
             board[newRow][newCol] = board[oldRow][oldCol];
             if (currentPlayer.equals(gameState.getPlayer())) {
-                gameState.getPlayerManPosition().add(move.getTo());
-                gameState.getPlayerManPosition().remove(move.getFrom());
+                gameState.addPlayerManPosition(move.getTo());
+                gameState.removePlayerManPosition(move.getFrom());
             } else {
-                gameState.getOpponentManPosition().add(move.getTo());
-                gameState.getOpponentManPosition().remove(move.getFrom());
+                gameState.addOpponentManPosition(move.getTo());
+                gameState.removeOpponentManPosition(move.getFrom());
             }
         }
         board[oldRow][oldCol] = ".";
@@ -390,20 +532,17 @@ class CheckerGameNoPruning {
         System.out.println("applyJumpMoves from " + oldCol + " " + oldRow + " to " + newCol + " " + newRow);
         System.out.println("applyJumpMoves from " + move.getFrom() + " to " + move.getTo());
 
-        String fromChecker = board[oldRow][oldCol];
-
         applyNewMove(gameState, move);
 
         // Handle capture
         int[] capturedPosition = new int[] { (oldCol+newCol) / 2 , (oldRow+newRow) / 2}; // (x,y)
         String capturedLabel = Utility.getLabel(capturedPosition[1], capturedPosition[0]);
-        String capturedChecker = board[capturedPosition[1]][capturedPosition[0]];
         if (gameState.getOpponent().equals(currentPlayer)) {
-            gameState.getPlayerManPosition().remove(capturedLabel);
-            gameState.getPlayerKingPosition().remove(capturedLabel);
+            gameState.removePlayerKingPosition(capturedLabel);
+            gameState.removePlayerManPosition(capturedLabel);
         } else {
-            gameState.getOpponentManPosition().remove(capturedLabel);
-            gameState.getOpponentKingPosition().remove(capturedLabel);
+            gameState.removeOpponentKingPosition(capturedLabel);
+            gameState.removeOpponentManPosition(capturedLabel);
         }
         board[capturedPosition[1]][capturedPosition[0]] = ".";
     }
@@ -451,7 +590,6 @@ class CheckerGameNoPruning {
             System.out.println("getAllPossibleMoves | jump size " + jumps.size());
 
             if (jumps.isEmpty()) {
-                System.out.println("regular move");
                 for (int[] dir : regularDirs) {
                     int row = currentRow + dir[1];
                     int col = currentCol + dir[0];
@@ -473,7 +611,6 @@ class CheckerGameNoPruning {
 
         // Get all possible moves of king checkers
         for(String checker: kingCheckerPosition) {
-            System.out.println("king " + checker);
             int[] currentPostion = Utility.getPosition(checker);
             int currentRow = currentPostion[1];
             int currentCol = currentPostion[0];
@@ -677,7 +814,7 @@ class CheckerGameNoPruning {
         }
 
         // No possible move
-        if (!canOpponentContinue(gameState) && !canPlayerContinue(gameState)) {
+        if (!canOpponentContinue(gameState) || !canPlayerContinue(gameState)) {
             return true;
         }
 
