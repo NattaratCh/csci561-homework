@@ -228,8 +228,6 @@ class CheckerGameNoPruning {
         Integer next = null;
         List<Move> possibleMoves = getAllPossibleMoves(state);
         for (Move move: possibleMoves) {
-            String nextMove = move.getFrom() + " " + move.getTo();
-            String inverseNextMove = move.getFrom() + " " + move.getTo();
 
             GameState nextState = move.getState();
             nextState.printBoard();
@@ -246,18 +244,12 @@ class CheckerGameNoPruning {
                 System.out.println("maxValue next > value bestMove " + bestMove);
                 value = next;
                 if (depth == 0) {
-                    if (bestMove == null && bestValue == null) {
-                        bestMove = move;
-                        bestValue = value;
-                        System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
-                        System.out.println("## best value: " + bestValue);
-                    } else if (next > bestValue && (playHistory.contains(nextMove) || playHistory.contains(inverseNextMove))) {
-                        // avoid move in loop
-                        bestMove = move;
-                        bestValue = value;
-                        System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
-                        System.out.println("## best value: " + bestValue);
-                    }
+                    //if ((bestMove == null && bestValue == null) || next > bestValue) {
+                    bestMove = move;
+                    bestValue = value;
+                    System.out.println("## best move: " + move.getFrom() + " => " + move.getTo());
+                    System.out.println("## best value: " + bestValue);
+                    //}
                 }
             }
 

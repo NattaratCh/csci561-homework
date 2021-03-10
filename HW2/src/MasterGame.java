@@ -36,10 +36,10 @@ public class MasterGame {
             king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
-                Homework.main(new String[]{});
+                HomeworkNoPruning.main(new String[]{});
             } else {
                 writeInput(board, Player.WHITE, whiteTime);
-                HomeworkNoPruning.main(new String[]{});
+                Homework.main(new String[]{});
             }
 
             List<String[]> moves = readMove();
