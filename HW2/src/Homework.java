@@ -510,22 +510,6 @@ class CheckerGame {
         board[oldRow][oldCol] = ".";
     }
 
-    public MoveLog applySingleMove(GameState gameState, Move move) {
-        int[] oldPosition = Utility.getPosition(move.getFrom());
-        int[] newPosition = Utility.getPosition(move.getTo());
-        int oldRow = oldPosition[1];
-        int oldCol = oldPosition[0];
-        int newRow = newPosition[1];
-        int newCol = newPosition[0];
-        String[][] board = gameState.getBoard();
-
-        String fromChecker = board[oldRow][oldCol];
-
-        applyNewMove(gameState, move);
-
-        return new MoveLog(MoveType.JUMP.ONE, fromChecker, board[newRow][newCol], move.getFrom(), move.getTo(), null, null, null);
-    }
-
     public void applyJumpMoves(GameState gameState, Move move) {
 
         Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
@@ -558,7 +542,7 @@ class CheckerGame {
     public void applyMove(GameState gameState, Move move) {
         System.out.println("applyMove " + move.getMoveType() + " from " + move.getFrom() + " to " + move.getTo());
         if (MoveType.ONE.equals(move.getMoveType())) {
-            applySingleMove(gameState, move);
+            applyNewMove(gameState, move);
         } else if (MoveType.JUMP.equals(move.getMoveType())) {
             applyJumpMoves(gameState, move);
         }
@@ -675,8 +659,6 @@ class CheckerGame {
             return false;
         }
 
-        //System.out.println("isValidMove : " + Utility.getLabel(oldRow,oldCol) + " -> " + Utility.getLabel(row,col));
-
         // No checker
         if (board[oldRow][oldCol].equals(".")) {
             return false;
@@ -713,14 +695,11 @@ class CheckerGame {
                         (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("b")));
             }
         } else {
-//            System.out.println("6");
-//            System.out.println(!isKing && isMoveDown(oldRow, row) && Math.abs(row-oldRow) == 1 && Math.abs(col - oldCol) == 1);
             if (!isKing && isMoveDown(oldRow, row) && Math.abs(row-oldRow) == 1 && Math.abs(col - oldCol) == 1) {
                 return true;
             } else if (isKing && Math.abs(oldRow-row) == 2) {
                 // King captures
                 if (isMoveUp(oldRow, row)) {
-                    //System.out.println("Black King move up + left " + board[row+1][col+1]);
                     return ((isMoveRight(oldCol, col) && board[row+1][col-1].equalsIgnoreCase("w")) ||
                             (isMoveLeft(oldCol, col) && board[row+1][col+1].equalsIgnoreCase("w")));
                 } else if (isMoveDown(oldRow, row)) {
@@ -734,7 +713,6 @@ class CheckerGame {
                         (isMoveLeft(oldCol, col) && board[row-1][col+1].equalsIgnoreCase("w")));
             }
         }
-        //System.out.println("7");
         return false;
     }
 
@@ -788,8 +766,6 @@ class CheckerGame {
                 }
             }
         }
-
-        //System.out.println("canPlayerContinue false");
         return false;
     }
 
@@ -825,7 +801,6 @@ class CheckerGame {
                 }
             }
         }
-        //System.out.println("canOpponentContinue false");
         return false;
     }
 
@@ -908,62 +883,6 @@ class GameState {
                 }
             }
         }
-    }
-
-//    public Integer utility() {
-//        return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 500;
-//    }
-//
-//    public Integer evaluation() {
-//        // TODO
-//        System.out.println("evaluation king: " + playerKingPosition.size());
-//        if (opponentKingPosition.isEmpty()) {
-//            return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + getPlayerSafeCheckers() * 10 + playerKingPosition.size() * 20 + getPlayerKingAreaChecker() + playerManPosition.size();
-//        } else {
-//            return (getPlayerCheckerSize() - getOpponentCheckerSize()) * 50 + playerKingPosition.size() * 20 + getPlayerKingAreaChecker() + playerManPosition.size();
-//        }
-//    }
-//
-//    private Integer distance(int player, int opponent) {
-//        return Math.abs(player - opponent);
-//    }
-
-    public int getPlayerSafeCheckers() {
-        int count = 0;
-        for (String checker: playerManPosition) {
-            int[] playerPos = Utility.getPosition(checker);
-            int playerRow = playerPos[1];
-            int playerCol = playerPos[0];
-            boolean safe = true;
-
-            int safeRow = Player.WHITE.equals(player) ? board.length-1 : 0;
-            if (playerCol != 0 && playerCol != board.length-1 && playerRow != safeRow) {
-                for(String opponent: opponentManPosition) {
-                    int[] opponentPos = Utility.getPosition(opponent);
-                    int opponentRow = opponentPos[1];
-
-                    if ((Player.WHITE.equals(player) && playerRow > opponentRow) || (Player.BLACK.equals(player) && playerRow < opponentRow)){
-                        safe = false;
-                        break;
-                    }
-                }
-            }
-            if (safe) count++;
-        }
-        return count;
-    }
-
-    // Return number of player's checkers that do not move from king area (prevent opponent to enter king area)
-    public int getPlayerKingAreaChecker() {
-        int count = 0;
-        for (String checker: playerManPosition) {
-            if (Player.WHITE.equals(player) && Utility.whiteKingArea.contains(checker)) {
-                count++;
-            } else if (Player.BLACK.equals(player) && Utility.blackKingArea.contains(checker)) {
-                count++;
-            }
-        }
-        return count;
     }
 
     public void printState() {
@@ -1092,7 +1011,7 @@ enum Player {
 }
 
 enum MoveType {
-    ONE("E"), JUMP("J"), NONE("");
+    ONE("E"), JUMP("J");
 
     private String name;
     MoveType(String name) {
@@ -1101,78 +1020,6 @@ enum MoveType {
 
     public String getName() {
         return name;
-    }
-}
-
-class MoveLog {
-    private MoveType moveType;
-    private String fromChecker;
-    private String toChecker;
-    private String from;
-    private String to;
-    private String captured;
-    private String capturedChecker;
-    private MoveLog moveLog;
-
-    public MoveLog(MoveType moveType, String fromChecker, String toChecker, String from, String to, String captured, String capturedChecker, MoveLog moveLog) {
-        this.moveType = moveType;
-        this.fromChecker = fromChecker;
-        this.toChecker = toChecker;
-        this.from = from;
-        this.to = to;
-        this.captured = captured;
-        this.capturedChecker = capturedChecker;
-        this.moveLog = moveLog;
-    }
-
-    public MoveType getMoveType() {
-        return moveType;
-    }
-
-    public String getFromChecker() {
-        return fromChecker;
-    }
-
-    public String getFrom() {
-        return from;
-    }
-
-    public String getTo() {
-        return to;
-    }
-
-    public String getCaptured() {
-        return captured;
-    }
-
-    public String getCapturedChecker() {
-        return capturedChecker;
-    }
-
-    public String getToChecker() {
-        return toChecker;
-    }
-
-    public MoveLog getMoveLog() {
-        return moveLog;
-    }
-
-    public void setMoveLog(MoveLog moveLog) {
-        this.moveLog = moveLog;
-    }
-
-    public void print() {
-        Stack<MoveLog> stack = new Stack<>();
-        MoveLog m = this;
-        while(m != null) {
-            stack.push(m);
-            m = m.getMoveLog();
-        }
-
-        while(!stack.isEmpty()) {
-            m = stack.pop();
-            System.out.println(m.getMoveType().getName() + " " + m.getFrom() + " " + m.getTo());
-        }
     }
 }
 
@@ -1185,17 +1032,6 @@ class Move {
     private GameState state;
     private Move move;
     private Integer capture;
-
-    public Move() {
-        this.moveType = MoveType.NONE;
-        this.from = null;
-        this.to = null;
-        this.move = null;
-        this.fromChecker = null;
-        this.toChecker = null;
-        this.state = null;
-        this.capture = 0;
-    }
 
     public Move(MoveType moveType, String from, String to, Move move, String fromChecker, String toChecker, GameState state) {
         this.moveType = moveType;
@@ -1226,14 +1062,6 @@ class Move {
 
     public Move getMove() {
         return move;
-    }
-
-    public void setMove(Move move) {
-        this.move = move;
-    }
-
-    public String getFromChecker() {
-        return fromChecker;
     }
 
     public String getToChecker() {

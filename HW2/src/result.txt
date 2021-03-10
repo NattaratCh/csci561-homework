@@ -1,6 +1,6 @@
 Round: 1
 Turn: BLACK
-Time remain: 99.959629
+Time remain: 99.952288
 E h6 g5
 .b.b.b.b
 b.b.b.b.
@@ -13,7 +13,7 @@ w.w.w.w.
 ===============================
 Round: 2
 Turn: WHITE
-Time remain: 99.366687
+Time remain: 99.356307
 E e3 f4
 .b.b.b.b
 b.b.b.b.
@@ -26,7 +26,7 @@ w.w.w.w.
 ===============================
 Round: 3
 Turn: BLACK
-Time remain: 99.836431
+Time remain: 99.804332
 J g5 e3
 .b.b.b.b
 b.b.b.b.
@@ -39,7 +39,7 @@ w.w.w.w.
 ===============================
 Round: 4
 Turn: WHITE
-Time remain: 99.112629
+Time remain: 99.11466300000001
 J f2 d4
 .b.b.b.b
 b.b.b.b.
@@ -52,7 +52,7 @@ w.w.w.w.
 ===============================
 Round: 5
 Turn: BLACK
-Time remain: 95.837029
+Time remain: 95.566497
 E g7 h6
 .b.b.b.b
 b.b.b...
@@ -65,7 +65,7 @@ w.w.w.w.
 ===============================
 Round: 6
 Turn: WHITE
-Time remain: 98.493157
+Time remain: 98.442615
 E c3 b4
 .b.b.b.b
 b.b.b...
@@ -78,7 +78,7 @@ w.w.w.w.
 ===============================
 Round: 7
 Turn: BLACK
-Time remain: 91.208877
+Time remain: 90.674333
 E f6 e5
 .b.b.b.b
 b.b.b...
@@ -91,7 +91,7 @@ w.w.w.w.
 ===============================
 Round: 8
 Turn: WHITE
-Time remain: 98.426799
+Time remain: 98.364867
 J d4 f6
 .b.b.b.b
 b.b.b...
@@ -104,7 +104,7 @@ w.w.w.w.
 ===============================
 Round: 9
 Turn: BLACK
-Time remain: 89.79919100000001
+Time remain: 89.160559
 J e7 g5
 .b.b.b.b
 b.b.....
@@ -117,7 +117,7 @@ w.w.w.w.
 ===============================
 Round: 10
 Turn: WHITE
-Time remain: 97.674498
+Time remain: 97.558158
 E g3 f4
 .b.b.b.b
 b.b.....
@@ -130,7 +130,7 @@ w.w.w.w.
 ===============================
 Round: 11
 Turn: BLACK
-Time remain: 89.62924600000001
+Time remain: 88.966852
 J g5 e3
 .b.b.b.b
 b.b.....
@@ -143,7 +143,7 @@ w.w.w.w.
 ===============================
 Round: 12
 Turn: WHITE
-Time remain: 97.471118
+Time remain: 97.299712
 J d2 f4
 .b.b.b.b
 b.b.....
@@ -156,7 +156,7 @@ w.w.w.w.
 ===============================
 Round: 13
 Turn: BLACK
-Time remain: 84.17665000000001
+Time remain: 83.363626
 E h8 g7
 .b.b.b..
 b.b...b.
@@ -169,7 +169,7 @@ w.w.w.w.
 ===============================
 Round: 14
 Turn: WHITE
-Time remain: 96.807248
+Time remain: 96.621676
 E b4 a5
 .b.b.b..
 b.b...b.
@@ -182,7 +182,7 @@ w.w.w.w.
 ===============================
 Round: 15
 Turn: BLACK
-Time remain: 79.80303800000002
+Time remain: 78.89435399999999
 E d6 e5
 .b.b.b..
 b.b...b.
@@ -195,7 +195,7 @@ w.w.w.w.
 ===============================
 Round: 16
 Turn: WHITE
-Time remain: 96.79717600000001
+Time remain: 96.61197299999999
 J f4 d6
 .b.b.b..
 b.b...b.
@@ -208,7 +208,7 @@ w.w.w.w.
 ===============================
 Round: 17
 Turn: BLACK
-Time remain: 79.77379900000001
+Time remain: 78.86424799999999
 J c7 e5
 .b.b.b..
 b.....b.
@@ -221,7 +221,7 @@ w.w.w.w.
 ===============================
 Round: 18
 Turn: WHITE
-Time remain: 96.733648
+Time remain: 96.53622499999999
 J a5 c7
 .b.b.b..
 b.w...b.
@@ -234,7 +234,7 @@ w.w.w.w.
 ===============================
 Round: 19
 Turn: BLACK
-Time remain: 78.191004
+Time remain: 77.345176
 J b8 d6
 ...b.b..
 b.....b.
@@ -247,7 +247,7 @@ w.w.w.w.
 ===============================
 Round: 20
 Turn: WHITE
-Time remain: 96.212197
+Time remain: 96.06001899999998
 E b2 c3
 ...b.b..
 b.....b.
@@ -260,7 +260,7 @@ w.w.w.w.
 ===============================
 Round: 21
 Turn: BLACK
-Time remain: 61.277736000000004
+Time remain: 60.90814499999999
 E g7 f6
 ...b.b..
 b.......
@@ -273,7 +273,7 @@ w.w.w.w.
 ===============================
 Round: 22
 Turn: WHITE
-Time remain: 95.632577
+Time remain: 95.52197099999998
 E c3 d4
 ...b.b..
 b.......
@@ -286,7 +286,7 @@ w.w.w.w.
 ===============================
 Round: 23
 Turn: BLACK
-Time remain: 59.854578000000004
+Time remain: 59.62540399999999
 J e5 c3
 ...b.b..
 b.......
@@ -299,7 +299,7 @@ w.w.w.w.
 ===============================
 Round: 24
 Turn: WHITE
-Time remain: 94.48597699999999
+Time remain: 94.42909899999998
 E c1 d2
 ...b.b..
 b.......
@@ -312,7 +312,7 @@ w...w.w.
 ===============================
 Round: 25
 Turn: BLACK
-Time remain: 57.79184
+Time remain: 57.77140199999999
 E a7 b6
 ...b.b..
 ........
@@ -325,7 +325,7 @@ w...w.w.
 ===============================
 Round: 26
 Turn: WHITE
-Time remain: 94.235811
+Time remain: 94.21487099999997
 J d2 b4
 ...b.b..
 ........
@@ -338,7 +338,7 @@ w...w.w.
 ===============================
 Round: 27
 Turn: BLACK
-Time remain: 48.447788
+Time remain: 49.21096499999999
 E f6 g5
 ...b.b..
 ........
@@ -351,7 +351,7 @@ w...w.w.
 ===============================
 Round: 28
 Turn: WHITE
-Time remain: 93.783788
+Time remain: 93.81279299999997
 E a1 b2
 ...b.b..
 ........
@@ -364,7 +364,7 @@ w.......
 ===============================
 Round: 29
 Turn: BLACK
-Time remain: 48.416622000000004
+Time remain: 49.18271199999999
 E f8 g7
 ...b....
 ......b.
@@ -377,7 +377,7 @@ w.......
 ===============================
 Round: 30
 Turn: WHITE
-Time remain: 93.324648
+Time remain: 93.40989999999996
 E e1 f2
 ...b....
 ......b.
@@ -390,7 +390,7 @@ w.......
 ===============================
 Round: 31
 Turn: BLACK
-Time remain: 48.395062
+Time remain: 49.164954999999985
 E g7 f6
 ...b....
 ........
@@ -403,7 +403,7 @@ w.......
 ===============================
 Round: 32
 Turn: WHITE
-Time remain: 92.976095
+Time remain: 93.07120599999996
 E f2 e3
 ...b....
 ........
@@ -416,7 +416,7 @@ w...w...
 ===============================
 Round: 33
 Turn: BLACK
-Time remain: 48.367607
+Time remain: 49.14641899999999
 E f6 e5
 ...b....
 ........
@@ -429,7 +429,7 @@ w...w...
 ===============================
 Round: 34
 Turn: WHITE
-Time remain: 92.736797
+Time remain: 92.83165299999996
 E g1 f2
 ...b....
 ........
@@ -442,7 +442,7 @@ w...w...
 ===============================
 Round: 35
 Turn: BLACK
-Time remain: 48.343543
+Time remain: 49.12823599999999
 E e5 f4
 ...b....
 ........
@@ -455,7 +455,7 @@ w...w...
 ===============================
 Round: 36
 Turn: WHITE
-Time remain: 92.392956
+Time remain: 92.51411299999997
 E e3 d4
 ...b....
 ........
@@ -468,7 +468,7 @@ w.......
 ===============================
 Round: 37
 Turn: BLACK
-Time remain: 48.318202
+Time remain: 49.11024299999999
 E d8 e7
 ........
 ....b...
@@ -481,7 +481,7 @@ w.......
 ===============================
 Round: 38
 Turn: WHITE
-Time remain: 92.0814
+Time remain: 92.21747899999997
 E b4 c5
 ........
 ....b...
@@ -494,7 +494,7 @@ w.......
 ===============================
 Round: 39
 Turn: BLACK
-Time remain: 48.315103
+Time remain: 49.10746099999999
 J d6 b4
 ........
 ....b...
@@ -507,7 +507,7 @@ w.......
 ===============================
 Round: 40
 Turn: WHITE
-Time remain: 91.97191000000001
+Time remain: 92.12156099999997
 J a3 c5
 J c5 a7
 ........
@@ -521,7 +521,7 @@ w...b...
 ===============================
 Round: 41
 Turn: BLACK
-Time remain: 48.297599
+Time remain: 49.090679999999985
 E f4 g3
 ........
 w...b...
@@ -534,7 +534,7 @@ w...b...
 ===============================
 Round: 42
 Turn: WHITE
-Time remain: 91.90963
+Time remain: 92.06518199999996
 J f2 h4
 J h4 f6
 J f6 d8
@@ -549,7 +549,7 @@ w.......
 ===============================
 Round: 43
 Turn: BLACK
-Time remain: 48.293313
+Time remain: 49.084192999999985
 E h6 g5
 ...W....
 w.......
@@ -562,7 +562,7 @@ w.......
 ===============================
 Round: 44
 Turn: WHITE
-Time remain: 91.49077700000001
+Time remain: 91.69738499999997
 E d8 e7
 ........
 w...W...
@@ -575,7 +575,7 @@ w...W...
 ===============================
 Round: 45
 Turn: BLACK
-Time remain: 48.286181
+Time remain: 49.07689399999998
 E g5 h4
 ........
 w...W...
@@ -588,7 +588,7 @@ w...W...
 ===============================
 Round: 46
 Turn: WHITE
-Time remain: 91.44117700000001
+Time remain: 91.65361499999997
 E d4 e5
 ........
 w...W...
@@ -601,7 +601,7 @@ w...W...
 ===============================
 Round: 47
 Turn: BLACK
-Time remain: 48.282512
+Time remain: 49.07476399999998
 E h4 g3
 ........
 w...W...
@@ -614,7 +614,7 @@ w...W...
 ===============================
 Round: 48
 Turn: WHITE
-Time remain: 91.43828200000002
+Time remain: 91.65184499999998
 J h2 f4
 ........
 w...W...

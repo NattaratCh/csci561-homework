@@ -494,22 +494,6 @@ class CheckerGameNoPruning {
         board[oldRow][oldCol] = ".";
     }
 
-    public MoveLog applySingleMove(GameState gameState, Move move) {
-        int[] oldPosition = Utility.getPosition(move.getFrom());
-        int[] newPosition = Utility.getPosition(move.getTo());
-        int oldRow = oldPosition[1];
-        int oldCol = oldPosition[0];
-        int newRow = newPosition[1];
-        int newCol = newPosition[0];
-        String[][] board = gameState.getBoard();
-
-        String fromChecker = board[oldRow][oldCol];
-
-        applyNewMove(gameState, move);
-
-        return new MoveLog(MoveType.JUMP.ONE, fromChecker, board[newRow][newCol], move.getFrom(), move.getTo(), null, null, null);
-    }
-
     public void applyJumpMoves(GameState gameState, Move move) {
 
         Player currentPlayer = gameState.isPlayerTurn() ? gameState.getPlayer() : gameState.getOpponent();
@@ -542,7 +526,7 @@ class CheckerGameNoPruning {
     public void applyMove(GameState gameState, Move move) {
         System.out.println("applyMove " + move.getMoveType() + " from " + move.getFrom() + " to " + move.getTo());
         if (MoveType.ONE.equals(move.getMoveType())) {
-            applySingleMove(gameState, move);
+            applyNewMove(gameState, move);
         } else if (MoveType.JUMP.equals(move.getMoveType())) {
             applyJumpMoves(gameState, move);
         }

@@ -1,3 +1,6 @@
 .idea/
 AI.iml
 out/
+HW2/opponent/*
+HW2/player/*
+HW2/out/*
