@@ -143,12 +143,13 @@ public class MasterGame {
             System.out.println("Terminated black runs oout of time");
             return true;
         }
-        // no capture for 50 times or no king for 50 times
-        if (noCaptureTime >= 50) {
+        // no capture for 50 moves or no king for 50 moves (1 move = 2 piles)
+        // (50 plies for your agent + 50 by your opponent)
+        if (noCaptureTime >= 100) {
             System.out.println("Terminated no capture for 50 times");
             return true;
         }
-        if (noKingCrownTime >= 50) {
+        if (noKingCrownTime >= 100) {
             System.out.println("Terminated no king crown for 50 times");
             return true;
         }

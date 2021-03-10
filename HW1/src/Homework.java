@@ -4,14 +4,14 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class Homework {
-    public static void main(String[] args) {
-        Solution solution = new Solution();
-        long start = System.nanoTime();
-        solution.solve("./src/input.txt");
-        long end = System.nanoTime();
-        long durationInMilliseconds = (end - start) / 1000000;
-        System.out.println("Time executed in seconds: " + (durationInMilliseconds/1000));
-    }
+//    public static void main(String[] args) {
+//        Solution solution = new Solution();
+//        long start = System.nanoTime();
+//        solution.solve("./src/input.txt");
+//        long end = System.nanoTime();
+//        long durationInMilliseconds = (end - start) / 1000000;
+//        System.out.println("Time executed in seconds: " + (durationInMilliseconds/1000));
+//    }
 
     /******************************
      * Submission *
@@ -24,9 +24,9 @@ public class Homework {
     /******************************
      * For testing *
      *******************************/
-//    public static void main(String[] args) {
-//        test();
-//    }
+    public static void main(String[] args) {
+        test();
+    }
 
     /***
      *  Testing code
@@ -39,7 +39,12 @@ public class Homework {
                 dest.delete();
             }
 
-            File src = new File("./test-cases/input" + i + ".txt");
+            File cost = new File("./src/cost.txt");
+            if (cost.exists()) {
+                cost.delete();
+            }
+
+            File src = new File("./test-cases/input/input" + i + ".txt");
             try {
                 Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -58,38 +63,41 @@ public class Homework {
     }
 
     private static void compareOutput(int caseNumber, SearchModel input) throws Exception {
-        String outputFileName = "./test-cases/output" + caseNumber + ".txt";
+        String outputFileName = "./test-cases/solution/solution" + caseNumber + ".txt";
+        String expectedCostFileName = "./test-cases/cost/cost" + caseNumber + ".txt";
+        String myCostFileName = "./src/cost.txt";
         try {
             BufferedReader expectOutputReader = new BufferedReader(new FileReader(outputFileName));
+            BufferedReader expectCostReader = new BufferedReader(new FileReader(expectedCostFileName));
             BufferedReader myOutputReader = new BufferedReader(new FileReader("./src/output.txt"));
+            BufferedReader myOutputCostReader = null;
+            File file = new File(myCostFileName);
+            if (file.exists()) {
+                myOutputCostReader = new BufferedReader(new FileReader(myCostFileName));
+            }
             String expectLine = expectOutputReader.readLine();
             String myLine = myOutputReader.readLine();
 
-            boolean success = true;
             int line = 1;
             while (expectLine != null && myLine != null) {
                 expectLine = expectLine.trim();
                 myLine = myLine.trim();
-
-                //if (expectLine.split("\\s").length != myLine.split("\\s").length) {
-                    Integer[] goal = input.getSettlingsPosition()[line-1];
-                    System.out.println("#######################");
-                    System.out.println("Incorrect case: " + line);
-                    System.out.println("Expected: " + expectLine);
-                    Integer expectedCost = calculateOutputCost(expectLine, input.getMethod(), input.getMap(), goal);
-                    System.out.println("Output: " + myLine);
-                    Integer myCost = calculateOutputCost(myLine, input.getMethod(), input.getMap(), goal);
-                    if (expectedCost != null && myCost != null) {
-                        System.out.println("Cost compare: " + (expectedCost.equals(myCost)));
-                    }
-                    if ((myCost != null && expectedCost != null && myCost <= expectedCost) || (myCost == null && expectedCost == null)) {
-                        System.out.println("My cost is lower or equal ");
-                        success = true;
+                System.out.println("myOutputCostReader " + myOutputCostReader);
+                String myCost = myOutputCostReader != null ? myOutputCostReader.readLine() : null;
+                String expectedCost = expectCostReader.readLine().trim();
+                System.out.println("#######################");
+                System.out.println("Test case " + caseNumber);
+                if (expectLine.equals(myLine)) {
+                    System.out.println("Line " + line + " PASSED!");
+                } else {
+                    if (myCost != null && myCost.equals(expectedCost)) {
+                        System.out.println("Line " + line + " PASSED!");
                     } else {
-                        success = false;
+                        System.out.println("Line " + line + " FAILED!");
+                        System.out.println("My cost " + myCost);
+                        System.out.println("Expected cost " + expectedCost);
                     }
-                    System.out.println("#######################");
-                //}
+                }
                 expectLine = expectOutputReader.readLine();
                 myLine = myOutputReader.readLine();
                 line++;
@@ -97,14 +105,6 @@ public class Homework {
 
             expectOutputReader.close();
             myOutputReader.close();
-
-            System.out.println("###########################################");
-            if (success) {
-                System.out.println("#### Case " + caseNumber + " PASSED");
-            } else {
-                System.out.println("#### Case " + caseNumber + " FAILED");
-            }
-            System.out.println("###########################################");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -264,6 +264,25 @@ class Solution {
 //        return null;
 //    }
 
+    private void writeCostFile(Integer cost) {
+        File file = new File("./src/cost.txt");
+        if (cost == null) {
+            cost = Integer.MAX_VALUE;
+        }
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write(cost + "");
+            br.write(System.lineSeparator());
+
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public List<Integer[]> bfs(Integer[][] map, Integer[] startPosition, Integer[] goal, Integer maxRockHeight) {
         if (map.length == 0 || map[0].length == 0) return null;
 
@@ -285,7 +304,8 @@ class Solution {
 
             if (pos[0].equals(goal[0]) && pos[1].equals(goal[1])) {
 //                System.out.println("current position: " + pos[0] + " " + pos[1]);
-//                System.out.println("Total cost: " + currentNode.getPathCost());
+                System.out.println("Total cost: " + currentNode.getPathCost());
+                writeCostFile(currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -295,6 +315,7 @@ class Solution {
             }
         }
 
+        writeCostFile(null);
         return null;
     }
 
@@ -319,6 +340,7 @@ class Solution {
             //System.out.println("current position: " + currentPos[0] + " " + currentPos[1]);
             if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
+                writeCostFile(currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -347,6 +369,8 @@ class Solution {
 
             visited.put(currentPos[0] + "_" + currentPos[1], currentNode);
         }
+
+        writeCostFile(null);
         return null;
     }
 
@@ -375,6 +399,7 @@ class Solution {
             //System.out.println("#### current position: " + currentPos[0] + " " + currentPos[1] + " Cost: " + currentNode.getPathCost());
             if (currentPos[0].equals(goal[0]) && currentPos[1].equals(goal[1])) {
                 System.out.println("Total cost: " + currentNode.getPathCost());
+                writeCostFile(currentNode.getPathCost());
                 return getPath(currentNode);
             }
 
@@ -404,6 +429,8 @@ class Solution {
 
             visited.put(currentPos[0] + "_" + currentPos[1], currentNode);
         }
+
+        writeCostFile(null);
         return null;
     }
 
