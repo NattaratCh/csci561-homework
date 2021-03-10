@@ -129,6 +129,9 @@ class CheckerGameNoPruning {
 
     private void writeBoard(GameState gameState) {
         File file = new File("./opponent/result_agent.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
 
         FileWriter fr = null;
         try {
