@@ -166,7 +166,7 @@ class CheckerGameNoPruning {
             } else if (gameState.getTimeRemaining() < 50) {
                 depthLimit = 2;
             } else {
-                depthLimit = 5;
+                depthLimit = 3;
             }
         }
 

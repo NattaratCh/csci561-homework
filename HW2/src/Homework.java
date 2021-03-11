@@ -35,8 +35,6 @@ class CheckerGame {
     private ThreadMXBean threadMXBean;
     private long startTime;
     private Map<String, Integer> playHistory;
-//    private Move bestMove;
-//    private Integer bestValue;
     private Integer depthLimit;
     private int[][] kingRegularDirs = new int[][]{{1, -1}, {-1, -1}, {-1,1}, {1,1}};;
     private int[][] kingCaptureDirs = new int[][]{{2, -2}, {-2, -2}, {-2,2}, {2,2}};
@@ -52,7 +50,7 @@ class CheckerGame {
 
         GameState gameState = readInput("./src/input.txt");
         // TODO change input path
-        //GameState gameState = readInput("./test-cases/input.txt");
+        // GameState gameState = readInput("./test-cases/input2.txt");
         if (Mode.GAME.equals(gameState.getMode())) {
             setPlayHistory();
         }
@@ -119,10 +117,6 @@ class CheckerGame {
         return (currentTime - startTime)/1000000000.0;
     }
 
-    public double getGameRemainingTime(GameState state) {
-        return state.getTimeRemaining() - getUseTime();
-    }
-
     public void nextMove(GameState gameState) {
         Pair<Integer, Move> best = minimax(gameState);
         System.out.println("============= next move pruning ============");
@@ -173,17 +167,16 @@ class CheckerGame {
             } else if (gameState.getTimeRemaining() < 50) {
                 depthLimit = 2;
             } else {
-                depthLimit = 5;
+                depthLimit = 3;
             }
         }
 
         if (gameState.isInitialState()) {
-            System.out.println("Initial state");
             depthLimit = 1;
         }
 
 
-        System.out.println("minimax depth limit: " + depthLimit);
+        System.out.println("agent minimax depth limit: " + depthLimit);
         Pair<Integer, Move> value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0);
         System.out.println("value: " + value);
         return value;
@@ -273,7 +266,8 @@ class CheckerGame {
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
                 return value;
             } else if (Mode.GAME.equals(state.getMode())) {
-                // TODO
+                //TODO
+                //if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
             }
         }
         return value;
@@ -312,6 +306,7 @@ class CheckerGame {
                 return value;
             } else if (Mode.GAME.equals(state.getMode())) {
                 // TODO
+                //if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
             }
         }
         return value;
@@ -329,6 +324,168 @@ class CheckerGame {
     }
 
     public Integer evaluation(GameState gameState) {
+        gameState.printBoard();
+        // 0 = # man
+        // 1 = # kings
+        // 2 = back row pieces
+        // 3 = middle box (row 3,4 col 2,3,4,5)
+        // 4 = not in middle box (row 3,4)
+        // 5 = can be captured next turn
+        // 6 = safe pieces
+        int[] wf = new int[] {5,8,4,2,1,-3,3};
+        int[] whiteValue = new int[7];
+        int[] blackValue = new int[7];
+        Set<String> blackKing = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
+        Set<String> whiteKing = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
+        Set<String> blackMan = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
+        Set<String> whiteMan = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
+        Set<String> blackPieces = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerPosition() : gameState.getOpponentPosition();
+        Set<String> whitePieces = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerPosition() : gameState.getOpponentPosition();
+
+        String[][] board = gameState.getBoard();
+        whiteValue[0] = whiteMan.size();
+        whiteValue[1] = whiteKing.size();
+        for(String whiteChecker: whitePieces) {
+            int[] position = Utility.getPosition(whiteChecker);
+            int row = position[1];
+            int col = position[0];
+
+            if (row == 0 || row == 7 || col == 0 || col == 7) {
+                whiteValue[6]++;
+            }
+
+            if (row == 7 && !isKingChecker(board[row][col])) {
+                whiteValue[2]++;
+            }
+
+            if (row == 3 || row == 4) {
+                if (col >= 2 && col <= 5) {
+                    whiteValue[3]++;
+                } else {
+                    whiteValue[4]++;
+                }
+            }
+
+            if (row > 0 && row < 7 && col > 0 && col < 7) {
+                if (canBeCaptured(board, row, col, Player.WHITE)) {
+                    whiteValue[5]++;
+                } else if (isProtected(board, row, col, Player.WHITE)) {
+                    whiteValue[6]++;
+                }
+            }
+        }
+
+        System.out.println("******************");
+        System.out.println("Evaluation white");
+        System.out.println("man: " + whiteValue[0]);
+        System.out.println("king: " + whiteValue[1]);
+        System.out.println("back row: " + whiteValue[2]);
+        System.out.println("middle box: " + whiteValue[3]);
+        System.out.println("middle not box: " + whiteValue[4]);
+        System.out.println("be captured next: " + whiteValue[5]);
+        System.out.println("safe: " + whiteValue[6]);
+
+
+        blackValue[0] = blackMan.size();
+        blackValue[1] = blackKing.size();
+        for(String blackChecker: blackPieces) {
+            int[] position = Utility.getPosition(blackChecker);
+            int row = position[1];
+            int col = position[0];
+
+            if (row == 0 || row == 7 || col == 0 || col == 7) {
+                blackValue[6]++;
+            }
+
+            if (row == 7 && !isKingChecker(board[row][col])) {
+                blackValue[2]++;
+            }
+
+            if (row == 3 || row == 4) {
+                if (col >= 2 && col <= 5) {
+                    blackValue[3]++;
+                } else {
+                    blackValue[4]++;
+                }
+            }
+
+            if (row > 0 && row < 7 && col > 0 && col < 7) {
+                if (canBeCaptured(board, row, col, Player.BLACK)) {
+                    blackValue[5]++;
+                } else if (isProtected(board, row, col, Player.BLACK)) {
+                    blackValue[6]++;
+                }
+            }
+        }
+
+        System.out.println("******************");
+        System.out.println("Evaluation black");
+        System.out.println("man: " + blackValue[0]);
+        System.out.println("king: " + blackValue[1]);
+        System.out.println("back row: " + blackValue[2]);
+        System.out.println("middle box: " + blackValue[3]);
+        System.out.println("middle not box: " + blackValue[4]);
+        System.out.println("be captured next: " + blackValue[5]);
+        System.out.println("safe: " + blackValue[6]);
+        System.out.println("******************");
+
+        // TODO add weight
+        int value = 0;
+        for (int i=0; i<whiteValue.length; i++) {
+            if (Player.BLACK.equals(gameState.getPlayer())) {
+                value += wf[i] * (blackValue[i] - whiteValue[i]);
+            } else {
+                value += wf[i] * (whiteValue[i] - blackValue[i]);
+            }
+        }
+        return value;
+    }
+
+    private boolean isProtected(String[][] board, int row, int col, Player player) {
+        // check tandem form: always one piece behind other
+        if (player.equals(Player.WHITE)) {
+            if (isKingChecker(board[row][col])) {
+                return (!isBlank(board, row-1, col-1) && board[row-1][col-1].equalsIgnoreCase("w")) ||
+                        (!isBlank(board, row+1, col-1) && board[row+1][col-1].equalsIgnoreCase("w")) ||
+                        (!isBlank(board, row-1, col+1) && board[row+1][col-1].equalsIgnoreCase("w")) ||
+                        (!isBlank(board, row+1, col+1) && board[row+1][col+1].equalsIgnoreCase("w"));
+            } else {
+                return (!isBlank(board, row+1, col-1) && board[row+1][col-1].equalsIgnoreCase("w")) ||
+                        (!isBlank(board, row+1, col+1) && board[row+1][col+1].equalsIgnoreCase("w"));
+            }
+        } else {
+            if (isKingChecker(board[row][col])) {
+                return (!isBlank(board, row-1, col-1) && board[row-1][col-1].equalsIgnoreCase("b")) ||
+                        (!isBlank(board, row+1, col-1) && board[row+1][col-1].equalsIgnoreCase("b")) ||
+                        (!isBlank(board, row-1, col+1) && board[row+1][col-1].equalsIgnoreCase("b")) ||
+                        (!isBlank(board, row+1, col+1) && board[row+1][col+1].equalsIgnoreCase("b"));
+            } else {
+                return (!isBlank(board, row-1, col-1) && board[row-1][col-1].equalsIgnoreCase("b")) ||
+                        (!isBlank(board, row-1, col+1) && board[row-1][col+1].equalsIgnoreCase("b"));
+            }
+        }
+    }
+
+    private boolean canBeCaptured(String[][] board, int row, int col, Player player) {
+        if (player.equals(Player.WHITE)) {
+            return (!isBlank(board, row-1, col-1) && board[row-1][col-1].equalsIgnoreCase("b") && isBlank(board, row+1, col+1)) ||
+                    (!isBlank(board, row-1, col+1) && board[row-1][col+1].equalsIgnoreCase("b") && isBlank(board, row+1, col-1)) ||
+                    (!isBlank(board, row+1, col+1) && board[row+1][col+1].equals("B") && isBlank(board, row-1, col-1)) ||
+                    (!isBlank(board, row+1, col-1) && board[row+1][col-1].equals("B") && isBlank(board, row-1, col+1));
+
+        } else {
+            return (!isBlank(board, row+1, col-1) && board[row+1][col-1].equalsIgnoreCase("w") && isBlank(board, row-1, col+1)) ||
+                    (!isBlank(board, row+1, col+1) && board[row+1][col+1].equalsIgnoreCase("w") && isBlank(board, row-1, col-1)) ||
+                    (!isBlank(board, row-1, col-1) && board[row-1][col-1].equals("W") && isBlank(board, row+1, col+1)) ||
+                    (!isBlank(board, row-1, col+1) && board[row-1][col+1].equals("W") && isBlank(board, row+1, col-1));
+        }
+    }
+
+    private boolean isBlank(String[][] board, int row, int col) {
+        return board[row][col].equals(".");
+    }
+
+    public Integer evaluation_1(GameState gameState) {
         // TODO rewrite evaluation function
         int kingWeight = 30;
         int manWeight = 1;
@@ -346,6 +503,12 @@ class CheckerGame {
         // Advance man are more value than man in the back of board
         for(String whiteChecker: whiteMan) {
             int[] position = Utility.getPosition(whiteChecker);
+            if (position[0] == 0 || position[0] == 7) {
+                // At border of board, cannot be captured
+                manWeight = 3;
+            } else {
+                manWeight = 1;
+            }
             whiteValue += (manWeight * (7-position[1]));
         }
 
@@ -364,6 +527,12 @@ class CheckerGame {
         blackValue += blackKing.size() * kingWeight;
         for(String blackChecker: blackMan) {
             int[] position = Utility.getPosition(blackChecker);
+            if (position[0] == 0 || position[0] == 7) {
+                // At border of board, cannot be captured
+                manWeight = 3;
+            } else {
+                manWeight = 1;
+            }
             blackValue += (manWeight * position[1]);
         }
         System.out.println("blackValue " + blackValue);
@@ -830,8 +999,10 @@ class GameState {
     private double timeRemaining;
     private Set<String> playerManPosition;
     private Set<String> playerKingPosition;
+    private Set<String> playerPosition;
     private Set<String> opponentManPosition;
     private Set<String> opponentKingPosition;
+    private Set<String> opponentPosition;
     private boolean isPlayerTurn;
 
     public GameState(String[][] board, Player player, Mode mode, double timeRemaining, boolean isPlayerTurn) {
@@ -842,8 +1013,10 @@ class GameState {
         this.timeRemaining = timeRemaining;
         playerManPosition = new HashSet<>();
         playerKingPosition = new HashSet<>();
+        playerPosition = new HashSet<>();
         opponentManPosition = new HashSet<>();
         opponentKingPosition = new HashSet<>();
+        opponentPosition = new HashSet<>();
         this.isPlayerTurn = isPlayerTurn;
         setupPosition();
     }
@@ -859,8 +1032,10 @@ class GameState {
         this.timeRemaining = gameState.timeRemaining;
         this.playerManPosition = new HashSet<>(gameState.playerManPosition);
         this.playerKingPosition = new HashSet<>(gameState.playerKingPosition);
+        this.playerPosition = new HashSet<>(gameState.playerPosition);
         this.opponentManPosition = new HashSet<>(gameState.opponentManPosition);
         this.opponentKingPosition = new HashSet<>(gameState.opponentKingPosition);
+        this.opponentPosition = new HashSet<>(gameState.opponentPosition);
         this.isPlayerTurn = gameState.isPlayerTurn;
     }
 
@@ -886,6 +1061,11 @@ class GameState {
                 }
             }
         }
+
+        playerPosition.addAll(playerManPosition);
+        playerPosition.addAll(playerKingPosition);
+        opponentPosition.addAll(opponentManPosition);
+        opponentPosition.addAll(opponentKingPosition);
     }
 
     public void printState() {
@@ -966,40 +1146,56 @@ class GameState {
         return opponentKingPosition;
     }
 
+    public Set<String> getPlayerPosition() {
+        return playerPosition;
+    }
+
+    public Set<String> getOpponentPosition() {
+        return opponentPosition;
+    }
+
     public boolean isPlayerTurn() {
         return isPlayerTurn;
     }
 
     public void addPlayerManPosition(String label) {
         playerManPosition.add(label);
+        playerPosition.add(label);
     }
 
     public void removePlayerManPosition(String label) {
         playerManPosition.remove(label);
+        playerPosition.remove(label);
     }
 
     public void addPlayerKingPosition(String label) {
         playerKingPosition.add(label);
+        playerPosition.add(label);
     }
 
     public void removePlayerKingPosition(String label) {
         playerKingPosition.remove(label);
+        playerPosition.remove(label);
     }
 
     public void addOpponentManPosition(String label) {
         opponentManPosition.add(label);
+        opponentPosition.add(label);
     }
 
     public void removeOpponentManPosition(String label) {
         opponentManPosition.remove(label);
+        opponentPosition.remove(label);
     }
 
     public void addOpponentKingPosition(String label) {
         opponentKingPosition.add(label);
+        opponentPosition.add(label);
     }
 
     public void removeOpponentKingPosition(String label) {
         opponentKingPosition.remove(label);
+        opponentPosition.remove(label);
     }
 }
 

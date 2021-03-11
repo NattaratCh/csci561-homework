@@ -36,10 +36,10 @@ public class MasterGame {
             king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
-                HomeworkNoPruning.main(new String[]{});
+                Homework.main(new String[]{});
             } else {
                 writeInput(board, Player.WHITE, whiteTime);
-                Homework.main(new String[]{});
+                HomeworkNoPruning.main(new String[]{});
             }
 
             List<String[]> moves = readMove();
@@ -81,6 +81,16 @@ public class MasterGame {
                 writeResult(turn[i%2], i, board, moves, blackTime);
             } else {
                 writeResult(turn[i%2], i, board, moves, whiteTime);
+            }
+
+            if (noMoves) {
+                System.out.println("Terminated no moves");
+                if (Player.BLACK.equals(turn[i%2])) {
+                    System.out.println("WHITE WIN!");
+                } else {
+                    System.out.println("BLACK WIN!");
+                }
+                break;
             }
 
             i++;
@@ -130,33 +140,49 @@ public class MasterGame {
     }
 
     public static boolean isTerminal(String[][] board, String boardStr, double blackTime, double whiteTime) {
-        if (noMoves) {
-            System.out.println("Terminated no moves");
-            return true;
-        }
-
         if (whiteTime <= 0) {
-            System.out.println("Terminated white runs oout of time");
+            System.out.println("Terminated white runs out of time");
             return true;
         }
         if (blackTime <= 0) {
-            System.out.println("Terminated black runs oout of time");
+            System.out.println("Terminated black runs out of time");
             return true;
         }
         // no capture for 50 moves or no king for 50 moves (1 move = 2 piles)
         // (50 plies for your agent + 50 by your opponent)
         if (noCaptureTime >= 100) {
             System.out.println("Terminated no capture for 50 times");
+            if (blackTime > whiteTime) {
+                System.out.println("BLACK WIN!");
+            } else if (whiteTime > blackTime) {
+                System.out.println("WHITE WIN!");
+            } else {
+                System.out.println("DRAW!");
+            }
             return true;
         }
         if (noKingCrownTime >= 100) {
             System.out.println("Terminated no king crown for 50 times");
+            if (blackTime > whiteTime) {
+                System.out.println("BLACK WIN!");
+            } else if (whiteTime > blackTime) {
+                System.out.println("WHITE WIN!");
+            } else {
+                System.out.println("DRAW!");
+            }
             return true;
         }
         // same board position 3 times
         int count = boardHistory.getOrDefault(boardStr, 0);
         if (count >= 3) {
             System.out.println("Terminated same board position 3 times");
+            if (blackTime > whiteTime) {
+                System.out.println("BLACK WIN!");
+            } else if (whiteTime > blackTime) {
+                System.out.println("WHITE WIN!");
+            } else {
+                System.out.println("DRAW!");
+            }
             return true;
         }
 
