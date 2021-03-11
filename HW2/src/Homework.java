@@ -43,14 +43,14 @@ class CheckerGame {
         this.depthLimit = 1;
         this.startTime = startTime;
         this.threadMXBean = threadMXBean;
-        playHistory = new HashMap<>();
+        this.playHistory = new HashMap<>();
     }
 
     public void start() {
 
         GameState gameState = readInput("./src/input.txt");
         // TODO change input path
-        // GameState gameState = readInput("./test-cases/input2.txt");
+        //GameState gameState = readInput("./test-cases/input13.txt");
         if (Mode.GAME.equals(gameState.getMode())) {
             setPlayHistory();
         }
@@ -118,7 +118,7 @@ class CheckerGame {
     }
 
     public void nextMove(GameState gameState) {
-        Pair<Integer, Move> best = minimax(gameState);
+        Pair<Double, Move> best = minimax(gameState);
         System.out.println("============= next move pruning ============");
         gameState.printState();
         writeBoard(gameState);
@@ -160,7 +160,7 @@ class CheckerGame {
 
     }
 
-    public Pair<Integer, Move> minimax(GameState gameState) {
+    public Pair<Double, Move> minimax(GameState gameState) {
         if (Mode.GAME.equals(gameState.getMode())) {
             if (gameState.getTimeRemaining() < 1.0) {
                 depthLimit = 1;
@@ -177,12 +177,12 @@ class CheckerGame {
 
 
         System.out.println("agent minimax depth limit: " + depthLimit);
-        Pair<Integer, Move> value = maxValue(gameState, Integer.MIN_VALUE, Integer.MAX_VALUE, 0);
+        Pair<Double, Move> value = maxValue(gameState, -Double.MAX_VALUE, Double.MAX_VALUE, 0);
         System.out.println("value: " + value);
         return value;
     }
 
-    private void writeOutput(Pair<Integer, Move> best) {
+    private void writeOutput(Pair<Double, Move> best) {
         if (best == null || best.getValue() == null) {
             System.out.println("Smart Agent: Cannot move");
             return;
@@ -201,7 +201,7 @@ class CheckerGame {
         }
     }
 
-    private void writePlayData(Pair<Integer, Move> best) {
+    private void writePlayData(Pair<Double, Move> best) {
         if (best == null || best.getValue() == null || MoveType.JUMP.equals(best.getValue().getMoveType())) return;
         File file = new File("./player/playdata.txt");
         FileWriter fr = null;
@@ -218,7 +218,7 @@ class CheckerGame {
     }
 
     // Player
-    public Pair<Integer, Move> maxValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Pair<Double, Move> maxValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("maxValue depth " + depth);
         if (isTerminal(state)) {
@@ -229,7 +229,7 @@ class CheckerGame {
             return new Pair(evaluation(state), null);
         }
 
-        Pair<Integer, Move> value = new Pair<>(Integer.MIN_VALUE, null);
+        Pair<Double, Move> value = new Pair<>(-Double.MAX_VALUE, null);
         PriorityQueue<Move> possibleMoves = getAllPossibleMoves(state);
         while (!possibleMoves.isEmpty()) {
             Move move = possibleMoves.poll();
@@ -237,7 +237,7 @@ class CheckerGame {
             nextState.printBoard();
             System.out.println("opponent moves");
             nextState.setIsPlayerTurn(false);
-            Pair<Integer, Move> fromMinPlayer = minValue(nextState, alpha, beta, depth+1);
+            Pair<Double, Move> fromMinPlayer = minValue(nextState, alpha, beta, depth+1);
 
             System.out.println("moves " + move.getFrom() + " -> " + move.getTo());
             System.out.println("maxValue value: " + value.getKey());
@@ -274,7 +274,7 @@ class CheckerGame {
     }
 
     // Opponent
-    public Pair<Integer, Move> minValue(GameState state, Integer alpha, Integer beta, Integer depth) {
+    public Pair<Double, Move> minValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("minValue depth " + depth);
         if (isTerminal(state)) {
@@ -285,14 +285,14 @@ class CheckerGame {
             return new Pair(evaluation(state), null);
         }
 
-        Pair<Integer, Move> value = new Pair<>(Integer.MAX_VALUE, null);
+        Pair<Double, Move> value = new Pair<>(Double.MAX_VALUE, null);
         PriorityQueue<Move> possibleMoves = getAllPossibleMoves(state);
         while (!possibleMoves.isEmpty()) {
             Move move = possibleMoves.poll();
             GameState nextState = move.getState();
             nextState.printBoard();
             nextState.setIsPlayerTurn(true);
-            Pair<Integer, Move> fromMaxPlayer = maxValue(nextState, alpha, beta, depth+1);
+            Pair<Double, Move> fromMaxPlayer = maxValue(nextState, alpha, beta, depth+1);
             if (fromMaxPlayer.getKey() < value.getKey()) {
                 value = new Pair<>(fromMaxPlayer.getKey(), move);
             }
@@ -312,27 +312,20 @@ class CheckerGame {
         return value;
     }
 
-    public Integer utility(GameState gameState) {
+    public Double utility(GameState gameState) {
         if (!canOpponentContinue(gameState) || gameState.getOpponentCheckerSize() == 0) {
             // Player wins
-            return 1000000;
+            return 1000000.0;
         } else if (!canPlayerContinue(gameState) || gameState.getPlayerCheckerSize() == 0) {
             // Opponent wins
-            return -1000000;
+            return -1000000.0;
         }
-        return 0;
+        return 0.0;
     }
 
-    public Integer evaluation(GameState gameState) {
-        gameState.printBoard();
-        // 0 = # man
-        // 1 = # kings
-        // 2 = back row pieces
-        // 3 = middle box (row 3,4 col 2,3,4,5)
-        // 4 = not in middle box (row 3,4)
-        // 5 = can be captured next turn
-        // 6 = safe pieces
-        int[] wf = new int[] {5,8,4,2,1,-3,3};
+    public double evaluation(GameState gameState) {
+        // wf: man, king, back row, middle box (row 3,4 col 2,3,4,5), middle rows (row 3,4), next be captured, safe
+        double[] wf = new double[] {5,8,4,2,0.5,-3,3};
         int[] whiteValue = new int[7];
         int[] blackValue = new int[7];
         Set<String> blackKing = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
@@ -375,15 +368,15 @@ class CheckerGame {
             }
         }
 
-        System.out.println("******************");
-        System.out.println("Evaluation white");
-        System.out.println("man: " + whiteValue[0]);
-        System.out.println("king: " + whiteValue[1]);
-        System.out.println("back row: " + whiteValue[2]);
-        System.out.println("middle box: " + whiteValue[3]);
-        System.out.println("middle not box: " + whiteValue[4]);
-        System.out.println("be captured next: " + whiteValue[5]);
-        System.out.println("safe: " + whiteValue[6]);
+//        System.out.println("******************");
+//        System.out.println("Evaluation white");
+//        System.out.println("man: " + whiteValue[0]);
+//        System.out.println("king: " + whiteValue[1]);
+//        System.out.println("back row: " + whiteValue[2]);
+//        System.out.println("middle box: " + whiteValue[3]);
+//        System.out.println("middle not box: " + whiteValue[4]);
+//        System.out.println("be captured next: " + whiteValue[5]);
+//        System.out.println("safe: " + whiteValue[6]);
 
 
         blackValue[0] = blackMan.size();
@@ -418,19 +411,18 @@ class CheckerGame {
             }
         }
 
-        System.out.println("******************");
-        System.out.println("Evaluation black");
-        System.out.println("man: " + blackValue[0]);
-        System.out.println("king: " + blackValue[1]);
-        System.out.println("back row: " + blackValue[2]);
-        System.out.println("middle box: " + blackValue[3]);
-        System.out.println("middle not box: " + blackValue[4]);
-        System.out.println("be captured next: " + blackValue[5]);
-        System.out.println("safe: " + blackValue[6]);
-        System.out.println("******************");
+//        System.out.println("******************");
+//        System.out.println("Evaluation black");
+//        System.out.println("man: " + blackValue[0]);
+//        System.out.println("king: " + blackValue[1]);
+//        System.out.println("back row: " + blackValue[2]);
+//        System.out.println("middle box: " + blackValue[3]);
+//        System.out.println("middle not box: " + blackValue[4]);
+//        System.out.println("be captured next: " + blackValue[5]);
+//        System.out.println("safe: " + blackValue[6]);
+//        System.out.println("******************");
 
-        // TODO add weight
-        int value = 0;
+        double value = 0;
         for (int i=0; i<whiteValue.length; i++) {
             if (Player.BLACK.equals(gameState.getPlayer())) {
                 value += wf[i] * (blackValue[i] - whiteValue[i]);

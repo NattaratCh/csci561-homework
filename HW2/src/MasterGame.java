@@ -13,10 +13,17 @@ public class MasterGame {
     private static Map<String, Integer> boardHistory = new HashMap<>();
     private static boolean noMoves = false;
     public static void main(String[] args) {
-        double blackTime = 100;
-        double whiteTime = 100;
-        int i = 0;
+        double blackTime = 30;
+        double whiteTime = 30;
         Player[] turn = {Player.BLACK, Player.WHITE};
+        startGame(blackTime, whiteTime, turn, Player.BLACK, Player.WHITE);
+        startGame(blackTime, whiteTime, turn, Player.WHITE, Player.WHITE);
+    }
+
+    public static void startGame(double blackTime, double whiteTime, Player[] turn, Player agent, Player opponent) {
+        System.out.println("**********************");
+        System.out.println("Agent is " + agent);
+        int i = 0;
         String[][] board = initializeBoard();
         String boardStr = null;
 
@@ -29,17 +36,18 @@ public class MasterGame {
         if (opponentFile.exists()) {
             opponentFile.delete();
         }
-
         while(!isTerminal(board, boardStr, blackTime, whiteTime)) {
             System.out.println("ROUND: " + (i + 1) + " turn: " + turn[i % 2].toString());
             capture = 0;
             king = 0;
             if (turn[i % 2].equals(Player.BLACK)) {
                 writeInput(board, Player.BLACK, blackTime);
-                Homework.main(new String[]{});
+                if (Player.BLACK.equals(agent)) Homework.main(new String[]{});
+                else HomeworkNoPruning.main(new String[]{});
             } else {
                 writeInput(board, Player.WHITE, whiteTime);
-                HomeworkNoPruning.main(new String[]{});
+                if (Player.WHITE.equals(agent)) Homework.main(new String[]{});
+                else HomeworkNoPruning.main(new String[]{});
             }
 
             List<String[]> moves = readMove();
@@ -78,9 +86,9 @@ public class MasterGame {
             }
 
             if (turn[i % 2].equals(Player.BLACK)) {
-                writeResult(turn[i%2], i, board, moves, blackTime);
+                writeResult(turn[i%2], i, board, moves, blackTime, agent);
             } else {
-                writeResult(turn[i%2], i, board, moves, whiteTime);
+                writeResult(turn[i%2], i, board, moves, whiteTime, agent);
             }
 
             if (noMoves) {
@@ -98,8 +106,11 @@ public class MasterGame {
         System.out.println("End Game");
     }
 
-    public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time) {
-        File file = new File("./src/result.txt");
+    public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time, Player agent) {
+        File file = new File("./src/ " + agent.toString() + "/result.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
         if (file.exists() && i == 0) {
             file.delete();
         }
@@ -288,7 +299,7 @@ public class MasterGame {
             file.delete();
             return moves;
         } catch (Exception e) {
-            System.out.println("initialzeBoard: " + e.getMessage());
+            System.out.println("readMove: " + e.getMessage());
             return null;
         }
     }
