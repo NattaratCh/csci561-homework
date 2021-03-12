@@ -1,0 +1,11 @@
+SINGLE
+BLACK
+6.6
+.b.b.b.b
+b.b.....
+...b....
+b...b...
+.w...b..
+w.w...w.
+.w.w...w
+..w.w.w.

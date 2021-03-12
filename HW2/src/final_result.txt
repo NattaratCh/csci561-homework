@@ -1,0 +1,60 @@
+Given time: 100.0
+**********************
+Agent is BLACK
+No white left
+BLACK WIN!
+===============================
+Given time: 100.0
+**********************
+Agent is WHITE
+No black left
+WHITE WIN!
+===============================
+Given time: 80.0
+**********************
+Agent is BLACK
+No white left
+BLACK WIN!
+===============================
+Given time: 80.0
+**********************
+Agent is WHITE
+No black left
+WHITE WIN!
+===============================
+Given time: 60.0
+**********************
+Agent is BLACK
+No white left
+BLACK WIN!
+===============================
+Given time: 60.0
+**********************
+Agent is WHITE
+No black left
+WHITE WIN!
+===============================
+Given time: 40.0
+**********************
+Agent is BLACK
+No white left
+BLACK WIN!
+===============================
+Given time: 40.0
+**********************
+Agent is WHITE
+No black left
+WHITE WIN!
+===============================
+Given time: 20.0
+**********************
+Agent is BLACK
+No white left
+BLACK WIN!
+===============================
+Given time: 20.0
+**********************
+Agent is WHITE
+No black left
+WHITE WIN!
+===============================

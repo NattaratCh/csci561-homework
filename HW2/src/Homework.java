@@ -50,7 +50,7 @@ class CheckerGame {
 
         GameState gameState = readInput("./src/input.txt");
         // TODO change input path
-        //GameState gameState = readInput("./test-cases/input13.txt");
+        // GameState gameState = readInput("./test-cases/input17.txt");
         if (Mode.GAME.equals(gameState.getMode())) {
             setPlayHistory();
         }
@@ -204,6 +204,9 @@ class CheckerGame {
     private void writePlayData(Pair<Double, Move> best) {
         if (best == null || best.getValue() == null || MoveType.JUMP.equals(best.getValue().getMoveType())) return;
         File file = new File("./player/playdata.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
         FileWriter fr = null;
         Move bestMove = best.getValue();
         try {
@@ -221,6 +224,8 @@ class CheckerGame {
     public Pair<Double, Move> maxValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("maxValue depth " + depth);
+        System.out.println("maxValue player " + state.getPlayer());
+        state.setIsPlayerTurn(true);
         if (isTerminal(state)) {
             return new Pair(utility(state), null);
         }
@@ -245,17 +250,7 @@ class CheckerGame {
             System.out.println("----------------------------");
 
             if (fromMinPlayer.getKey() > value.getKey()) {
-//                if (bestMove != null) System.out.println("maxValue next > value bestMove " + bestMove.getFrom() + "->" + bestMove.getTo());
-//                else System.out.println("maxValue next > value bestMove " + bestMove);
                 value = new Pair<>(fromMinPlayer.getKey(), move);
-//                if (depth == 0) {
-//                    //if ((bestMove == null && bestValue == null) || next > bestValue) {
-//                        bestMove = move;
-//                        bestValue = value;
-//                        System.out.println("## best move: " + move.getFrom() + " -> " + move.getTo());
-//                        System.out.println("## best value: " + bestValue);
-//                    //}
-//                }
             }
 
             System.out.println("maxValue value: " + value.getKey());
@@ -267,7 +262,7 @@ class CheckerGame {
                 return value;
             } else if (Mode.GAME.equals(state.getMode())) {
                 //TODO
-                //if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
+                if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
             }
         }
         return value;
@@ -277,6 +272,8 @@ class CheckerGame {
     public Pair<Double, Move> minValue(GameState state, Double alpha, Double beta, Integer depth) {
         System.out.println("#############################################################");
         System.out.println("minValue depth " + depth);
+        System.out.println("minValue player " + state.getPlayer());
+        state.setIsPlayerTurn(false);
         if (isTerminal(state)) {
             return new Pair(utility(state), null);
         }
@@ -306,7 +303,7 @@ class CheckerGame {
                 return value;
             } else if (Mode.GAME.equals(state.getMode())) {
                 // TODO
-                //if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
+                if (getUseTime() >= 0.10 * state.getTimeRemaining()) return value;
             }
         }
         return value;
@@ -325,9 +322,11 @@ class CheckerGame {
 
     public double evaluation(GameState gameState) {
         // wf: man, king, back row, middle box (row 3,4 col 2,3,4,5), middle rows (row 3,4), next be captured, safe
-        double[] wf = new double[] {5,8,4,2,0.5,-3,3};
+        double[] wf = new double[] {5,7,4,2,0.5,-3,3};
         int[] whiteValue = new int[7];
         int[] blackValue = new int[7];
+        int whiteBackRow = 7;
+        int blackBackRow = 0;
         Set<String> blackKing = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
         Set<String> whiteKing = Player.WHITE.equals(gameState.getPlayer()) ? gameState.getPlayerKingPosition() : gameState.getOpponentKingPosition();
         Set<String> blackMan = Player.BLACK.equals(gameState.getPlayer()) ? gameState.getPlayerManPosition() : gameState.getOpponentManPosition();
@@ -347,7 +346,7 @@ class CheckerGame {
                 whiteValue[6]++;
             }
 
-            if (row == 7 && !isKingChecker(board[row][col])) {
+            if (row == whiteBackRow && !isKingChecker(board[row][col])) {
                 whiteValue[2]++;
             }
 
@@ -368,15 +367,16 @@ class CheckerGame {
             }
         }
 
-//        System.out.println("******************");
-//        System.out.println("Evaluation white");
-//        System.out.println("man: " + whiteValue[0]);
-//        System.out.println("king: " + whiteValue[1]);
-//        System.out.println("back row: " + whiteValue[2]);
-//        System.out.println("middle box: " + whiteValue[3]);
-//        System.out.println("middle not box: " + whiteValue[4]);
-//        System.out.println("be captured next: " + whiteValue[5]);
-//        System.out.println("safe: " + whiteValue[6]);
+        gameState.printBoard();
+        System.out.println("******************");
+        System.out.println("Evaluation white");
+        System.out.println("man: " + whiteValue[0]);
+        System.out.println("king: " + whiteValue[1]);
+        System.out.println("back row: " + whiteValue[2]);
+        System.out.println("middle box: " + whiteValue[3]);
+        System.out.println("middle not box: " + whiteValue[4]);
+        System.out.println("be captured next: " + whiteValue[5]);
+        System.out.println("safe: " + whiteValue[6]);
 
 
         blackValue[0] = blackMan.size();
@@ -390,7 +390,7 @@ class CheckerGame {
                 blackValue[6]++;
             }
 
-            if (row == 7 && !isKingChecker(board[row][col])) {
+            if (row == blackBackRow && !isKingChecker(board[row][col])) {
                 blackValue[2]++;
             }
 
@@ -411,16 +411,16 @@ class CheckerGame {
             }
         }
 
-//        System.out.println("******************");
-//        System.out.println("Evaluation black");
-//        System.out.println("man: " + blackValue[0]);
-//        System.out.println("king: " + blackValue[1]);
-//        System.out.println("back row: " + blackValue[2]);
-//        System.out.println("middle box: " + blackValue[3]);
-//        System.out.println("middle not box: " + blackValue[4]);
-//        System.out.println("be captured next: " + blackValue[5]);
-//        System.out.println("safe: " + blackValue[6]);
-//        System.out.println("******************");
+        System.out.println("******************");
+        System.out.println("Evaluation black");
+        System.out.println("man: " + blackValue[0]);
+        System.out.println("king: " + blackValue[1]);
+        System.out.println("back row: " + blackValue[2]);
+        System.out.println("middle box: " + blackValue[3]);
+        System.out.println("middle not box: " + blackValue[4]);
+        System.out.println("be captured next: " + blackValue[5]);
+        System.out.println("safe: " + blackValue[6]);
+        System.out.println("******************");
 
         double value = 0;
         for (int i=0; i<whiteValue.length; i++) {
@@ -746,6 +746,7 @@ class CheckerGame {
 
         // Get all possible moves of man checkers
         for(String checker: manCheckerPosition) {
+            System.out.println(checker);
             int[] currentPostion = Utility.getPosition(checker);
             int currentRow = currentPostion[1];
             int currentCol = currentPostion[0];
@@ -823,6 +824,7 @@ class CheckerGame {
             return false;
         }
 
+        System.out.println("check isValidMove " + Utility.getLabel(oldRow, oldCol) + " -> " + Utility.getLabel(row, col));
         // No checker
         if (board[oldRow][oldCol].equals(".")) {
             return false;
@@ -975,7 +977,11 @@ class CheckerGame {
         }
 
         // No possible move
-        if (!canOpponentContinue(gameState) || !canPlayerContinue(gameState)) {
+        if (gameState.isPlayerTurn() && !canPlayerContinue(gameState)) {
+            return true;
+        }
+
+        if (!gameState.isPlayerTurn() && !canOpponentContinue(gameState)) {
             return true;
         }
 

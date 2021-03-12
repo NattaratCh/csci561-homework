@@ -13,14 +13,35 @@ public class MasterGame {
     private static Map<String, Integer> boardHistory = new HashMap<>();
     private static boolean noMoves = false;
     public static void main(String[] args) {
-        double blackTime = 30;
-        double whiteTime = 30;
-        Player[] turn = {Player.BLACK, Player.WHITE};
-        startGame(blackTime, whiteTime, turn, Player.BLACK, Player.WHITE);
-        startGame(blackTime, whiteTime, turn, Player.WHITE, Player.WHITE);
+        File file = new File("./src/final_result.txt");
+        if (file.exists()) {
+            file.delete();
+        }
+
+        for(int t = 100; t>=20; t-=20) {
+            double blackTime = t;
+            double whiteTime = t;
+            double givenTime = t;
+            Player[] turn = {Player.BLACK, Player.WHITE};
+            StringBuilder sb1 = startGame(blackTime, whiteTime, turn, Player.BLACK, Player.WHITE);
+            writeFinalResult(sb1.toString(), givenTime);
+            StringBuilder sb2 =startGame(blackTime, whiteTime, turn, Player.WHITE, Player.WHITE);
+            writeFinalResult(sb2.toString(), givenTime);
+        }
+//        double blackTime = 60;
+//        double whiteTime = 60;
+//        double givenTime = 60;
+//        Player[] turn = {Player.BLACK, Player.WHITE};
+//        StringBuilder sb1 = startGame(blackTime, whiteTime, turn, Player.BLACK, Player.WHITE);
+//        writeFinalResult(sb1.toString(), givenTime);
+//        StringBuilder sb2 =startGame(blackTime, whiteTime, turn, Player.WHITE, Player.WHITE);
+//        writeFinalResult(sb2.toString(), givenTime);
     }
 
-    public static void startGame(double blackTime, double whiteTime, Player[] turn, Player agent, Player opponent) {
+    public static StringBuilder startGame(double blackTime, double whiteTime, Player[] turn, Player agent, Player opponent) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("**********************\n");
+        sb.append("Agent is " + agent + "\n");
         System.out.println("**********************");
         System.out.println("Agent is " + agent);
         int i = 0;
@@ -36,7 +57,13 @@ public class MasterGame {
         if (opponentFile.exists()) {
             opponentFile.delete();
         }
-        while(!isTerminal(board, boardStr, blackTime, whiteTime)) {
+
+        boardHistory.clear();
+        noKingCrownTime = 0;
+        noCaptureTime = 0;
+        noMoves = false;
+
+        while(!isTerminal(board, boardStr, blackTime, whiteTime, sb)) {
             System.out.println("ROUND: " + (i + 1) + " turn: " + turn[i % 2].toString());
             capture = 0;
             king = 0;
@@ -53,6 +80,7 @@ public class MasterGame {
             List<String[]> moves = readMove();
             if (moves != null) {
                 applyMove(moves, board, turn[i % 2]);
+                noMoves = false;
             } else {
                 noMoves = true;
             }
@@ -92,10 +120,13 @@ public class MasterGame {
             }
 
             if (noMoves) {
+                sb.append("Terminated no moves\n");
                 System.out.println("Terminated no moves");
                 if (Player.BLACK.equals(turn[i%2])) {
+                    sb.append("WHITE WIN!\n");
                     System.out.println("WHITE WIN!");
                 } else {
+                    sb.append("BLACK WIN!\n");
                     System.out.println("BLACK WIN!");
                 }
                 break;
@@ -104,6 +135,30 @@ public class MasterGame {
             i++;
         }
         System.out.println("End Game");
+        return sb;
+    }
+
+    public static void writeFinalResult(String result, double time) {
+        File file = new File("./src/final_result.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
+
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write("Given time: " + time);
+            br.write(System.lineSeparator());
+            br.write(result);
+            br.write("===============================");
+            br.write(System.lineSeparator());
+
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time, Player agent) {
@@ -150,36 +205,48 @@ public class MasterGame {
 
     }
 
-    public static boolean isTerminal(String[][] board, String boardStr, double blackTime, double whiteTime) {
+    public static boolean isTerminal(String[][] board, String boardStr, double blackTime, double whiteTime, StringBuilder sb) {
         if (whiteTime <= 0) {
             System.out.println("Terminated white runs out of time");
+            sb.append("Terminated white runs out of time\n");
+            sb.append("BLACK WIN!");
             return true;
         }
         if (blackTime <= 0) {
             System.out.println("Terminated black runs out of time");
+            sb.append("Terminated black runs out of time\n");
+            sb.append("WHITE WIN!");
             return true;
         }
         // no capture for 50 moves or no king for 50 moves (1 move = 2 piles)
         // (50 plies for your agent + 50 by your opponent)
         if (noCaptureTime >= 100) {
             System.out.println("Terminated no capture for 50 times");
+            sb.append("Terminated no capture for 50 times\n");
             if (blackTime > whiteTime) {
                 System.out.println("BLACK WIN!");
+                sb.append("BLACK WIN!\n");
             } else if (whiteTime > blackTime) {
                 System.out.println("WHITE WIN!");
+                sb.append("WHITE WIN!\n");
             } else {
                 System.out.println("DRAW!");
+                sb.append("DRAW!\n");
             }
             return true;
         }
         if (noKingCrownTime >= 100) {
             System.out.println("Terminated no king crown for 50 times");
+            sb.append("Terminated no king crown for 50 times\n");
             if (blackTime > whiteTime) {
                 System.out.println("BLACK WIN!");
+                sb.append("BLACK WIN!\n");
             } else if (whiteTime > blackTime) {
                 System.out.println("WHITE WIN!");
+                sb.append("WHITE WIN!\n");
             } else {
                 System.out.println("DRAW!");
+                sb.append("DRAW!\n");
             }
             return true;
         }
@@ -187,12 +254,16 @@ public class MasterGame {
         int count = boardHistory.getOrDefault(boardStr, 0);
         if (count >= 3) {
             System.out.println("Terminated same board position 3 times");
+            sb.append("Terminated same board position 3 times\n");
             if (blackTime > whiteTime) {
                 System.out.println("BLACK WIN!");
+                sb.append("BLACK WIN!\n");
             } else if (whiteTime > blackTime) {
                 System.out.println("WHITE WIN!");
+                sb.append("WHITE WIN!\n");
             } else {
                 System.out.println("DRAW!");
+                sb.append("DRAW!\n");
             }
             return true;
         }
@@ -202,10 +273,14 @@ public class MasterGame {
         int blackPlayer = getPlayerSize(board, "b");
         if (whitePlayers == 0) {
             System.out.println("BLACK WIN!");
+            sb.append("No white left\n");
+            sb.append("BLACK WIN!\n");
             return true;
         }
         if (blackPlayer == 0) {
             System.out.println("WHITE WIN!");
+            sb.append("No black left\n");
+            sb.append("WHITE WIN!\n");
             return true;
         }
         return false;

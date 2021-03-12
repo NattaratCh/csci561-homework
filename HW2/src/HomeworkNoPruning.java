@@ -793,7 +793,11 @@ class CheckerGameNoPruning {
         }
 
         // No possible move
-        if (!canOpponentContinue(gameState) || !canPlayerContinue(gameState)) {
+        if (gameState.isPlayerTurn() && !canPlayerContinue(gameState)) {
+            return true;
+        }
+
+        if (!gameState.isPlayerTurn() && !canOpponentContinue(gameState)) {
             return true;
         }
 
