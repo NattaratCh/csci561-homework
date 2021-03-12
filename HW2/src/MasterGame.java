@@ -135,6 +135,8 @@ public class MasterGame {
             i++;
         }
         System.out.println("End Game");
+        sb.append("BLACK time remaining: " + blackTime + "\n");
+        sb.append("WHITE time remaining: " + whiteTime + "\n");
         return sb;
     }
 
@@ -162,7 +164,7 @@ public class MasterGame {
     }
 
     public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time, Player agent) {
-        File file = new File("./src/ " + agent.toString() + "/result.txt");
+        File file = new File("./src/" + agent.toString() + "/result.txt");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
         }

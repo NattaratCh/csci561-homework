@@ -67,7 +67,7 @@ class CheckerGameNoPruning {
             String line = reader.readLine().trim();
             Mode mode = Mode.valueOf(line);
 
-            // Line 2 - Color (WHITE, BLACK)
+            // Line 2 - Color (WHITE,BLACK)
             line = reader.readLine().trim();
             Player player = Player.valueOf(line);
 
