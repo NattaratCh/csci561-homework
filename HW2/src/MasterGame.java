@@ -13,7 +13,7 @@ public class MasterGame {
     private static Map<String, Integer> boardHistory = new HashMap<>();
     private static boolean noMoves = false;
     public static void main(String[] args) {
-        File file = new File("./src/final_result.txt");
+        File file = new File("./result/final_result.txt");
         if (file.exists()) {
             file.delete();
         }
@@ -141,7 +141,7 @@ public class MasterGame {
     }
 
     public static void writeFinalResult(String result, double time) {
-        File file = new File("./src/final_result.txt");
+        File file = new File("./result/final_result.txt");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
         }
@@ -164,7 +164,7 @@ public class MasterGame {
     }
 
     public static void writeResult(Player player, int i, String[][] board, List<String[]> moves, double time, Player agent) {
-        File file = new File("./src/" + agent.toString() + "/result.txt");
+        File file = new File("./result/" + agent.toString() + "/result.txt");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
         }

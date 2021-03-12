@@ -4,7 +4,5 @@ out/
 HW2/opponent/*
 HW2/player/*
 HW2/out/*
-HW2/src/BLACK/*
-HW2/src/WHITE/*
-HW2/src/final_result.txt
+HW2/result/*
 HW2/src/time.txt
