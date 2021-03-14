@@ -13,7 +13,7 @@ public class Homework {
         long startTime = threadMXBean.getCurrentThreadCpuTime() + threadMXBean.getCurrentThreadUserTime();
         CheckerGame checkerGame = new CheckerGame(threadMXBean, startTime);
         checkerGame.start();
-        //writeTime(checkerGame.getUseTime());
+        writeTime(checkerGame.getUseTime());
     }
 
     private static void writeTime(double time) {
@@ -44,9 +44,9 @@ class CheckerGame {
 
     public void start() {
 
-        GameState gameState = readInput("input.txt");
+        GameState gameState = readInput("./src/input.txt");
         // TODO change input path
-        // GameState gameState = readInput("./test-cases/input19.txt");
+        // GameState gameState = readInput("./test-cases/input20.txt");
         if (Mode.GAME.equals(gameState.getMode())) {
             setPlayHistory();
         }
@@ -89,7 +89,7 @@ class CheckerGame {
     }
 
     public void setPlayHistory() {
-        File file = new File("playdata.txt");
+        File file = new File("./src/playdata.txt");
         if (!file.exists()) return;
 
         BufferedReader reader;
@@ -115,7 +115,7 @@ class CheckerGame {
     public void nextMove(GameState gameState) {
         Pair<Double, Move> best = minimax(gameState);
         best.getValue().getState().printBoard();
-        // writeBoard(best);
+        writeBoard(best);
         writeOutput(best);
         if (Mode.GAME.equals(gameState.getMode())) {
             writePlayData(best);
@@ -171,8 +171,6 @@ class CheckerGame {
             depthLimit = 1;
         }
 
-        depthLimit = 3;
-
 
         System.out.println("agent minimax depth limit: " + depthLimit);
         Pair<Double, Move> value = maxValue(gameState, -Double.MAX_VALUE, Double.MAX_VALUE, 0);
@@ -188,7 +186,7 @@ class CheckerGame {
 
         try {
             // TODO change output path
-            FileWriter writer = new FileWriter("output.txt");
+            FileWriter writer = new FileWriter("./src/output.txt");
             for(String line: results) {
                 writer.write(line + System.lineSeparator());
             }
@@ -200,7 +198,7 @@ class CheckerGame {
 
     private void writePlayData(Pair<Double, Move> best) {
         if (best == null || best.getValue() == null || MoveType.JUMP.equals(best.getValue().getMoveType())) return;
-        File file = new File("playdata.txt");
+        File file = new File("./player/playdata.txt");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
         }
@@ -321,7 +319,8 @@ class CheckerGame {
 
     public double evaluation(GameState gameState) {
         // wf: man, king, back row, middle box (row 3,4 col 2,3,4,5), middle rows (row 3,4), next be captured, safe
-        double[] wf = new double[] {5,8,4,2.5,0.5,-4,3};
+        //double[] wf = new double[] {5,8,4,2.5,0.5,-4,3};
+        double[] wf = new double[] {5,7,4,2,0.5,-3,3};
         int[] whiteValue = new int[7];
         int[] blackValue = new int[7];
         int whiteBackRow = 7;
@@ -730,14 +729,16 @@ class CheckerGame {
         }
 
         // Prioritize regular moves by index in play history
-        PriorityQueue<Move> regularMoves = new PriorityQueue<Move>((a, b) -> {
-            // Move from single corner first
-            String aTo = a.getFrom();
-            String bTo = b.getFrom();
+        PriorityQueue<Move> regularMoves = new PriorityQueue<>((a, b) -> {
+            // No priority
+            return 1;
+// Option 1 Move from single corner first
+//            String aFrom = a.getFrom();
+//            String bFrom = b.getFrom();
+//
+//            return Player.BLACK.equals(currentPlayer) ? bFrom.compareTo(aFrom) : aFrom.compareTo(bFrom);
 
-            return Player.BLACK.equals(currentPlayer) ? bTo.compareTo(aTo) : aTo.compareTo(bTo);
-
-// consider play history
+// Option 2 consider play history
 //            if (a.getSeenIndex(playHistory) == b.getSeenIndex(playHistory)) {
 //                return 1;
 //            } else {
@@ -1101,16 +1102,18 @@ class GameState {
     }
 
     public boolean isInitialState() {
-        for(String label: Utility.whiteInitialLabels) {
-            int[] position = Utility.getPosition(label);
-            if (!board[position[1]][position[0]].equals("w")) return false;
+        if (Player.BLACK.equals(player)) {
+            for(String label: Utility.blackInitialLabels) {
+                int[] position = Utility.getPosition(label);
+                if (!board[position[1]][position[0]].equals("b")) return false;
+            }
+        } else {
+            for(String label: Utility.whiteInitialLabels) {
+                int[] position = Utility.getPosition(label);
+                if (!board[position[1]][position[0]].equals("w")) return false;
+            }
         }
-
-        for(String label: Utility.blackInitialLabels) {
-            int[] position = Utility.getPosition(label);
-            if (!board[position[1]][position[0]].equals("b")) return false;
-        }
-        return getPlayerCheckerSize() == 12 && getOpponentCheckerSize() == 12;
+        return true;
     }
 
     public Player getPlayer() {

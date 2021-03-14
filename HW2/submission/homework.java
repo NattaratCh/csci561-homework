@@ -152,10 +152,6 @@ class CheckerGame {
         if (gameState.isInitialState()) {
             depthLimit = 1;
         }
-
-        depthLimit = 3;
-
-
         //System.out.println("agent minimax depth limit: " + depthLimit);
         Pair<Double, Move> value = maxValue(gameState, -Double.MAX_VALUE, Double.MAX_VALUE, 0);
         return value;
@@ -301,7 +297,8 @@ class CheckerGame {
 
     public double evaluation(GameState gameState) {
         // wf: man, king, back row, middle box (row 3,4 col 2,3,4,5), middle rows (row 3,4), next be captured, safe
-        double[] wf = new double[] {5,8,4,2.5,0.5,-4,3};
+        // double[] wf = new double[] {5,8,4,2.5,0.5,-4,3};
+        double[] wf = new double[] {5,7,4,2,0.5,-3,3};
         int[] whiteValue = new int[7];
         int[] blackValue = new int[7];
         int whiteBackRow = 7;
@@ -711,13 +708,15 @@ class CheckerGame {
 
         // Prioritize regular moves by index in play history
         PriorityQueue<Move> regularMoves = new PriorityQueue<Move>((a, b) -> {
-            // Move from single corner first
-            String aTo = a.getFrom();
-            String bTo = b.getFrom();
+            // No priority
+            return 1;
+// Option 1 Move from single corner first
+//            String aFrom = a.getFrom();
+//            String bFrom = b.getFrom();
+//
+//            return Player.BLACK.equals(currentPlayer) ? bFrom.compareTo(aFrom) : aFrom.compareTo(bFrom);
 
-            return Player.BLACK.equals(currentPlayer) ? bTo.compareTo(aTo) : aTo.compareTo(bTo);
-
-// consider play history
+// Option 2 consider play history
 //            if (a.getSeenIndex(playHistory) == b.getSeenIndex(playHistory)) {
 //                return 1;
 //            } else {
