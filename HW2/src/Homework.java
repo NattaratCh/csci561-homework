@@ -44,9 +44,9 @@ class CheckerGame {
 
     public void start() {
 
-        GameState gameState = readInput("./src/input.txt");
+        //GameState gameState = readInput("./src/input.txt");
         // TODO change input path
-        // GameState gameState = readInput("./test-cases/input20.txt");
+        GameState gameState = readInput("./test-cases/white/input19.txt");
         if (Mode.GAME.equals(gameState.getMode())) {
             setPlayHistory();
         }
@@ -225,7 +225,7 @@ class CheckerGame {
             return new Pair(utility(state), null);
         }
 
-        if (depth == depthLimit) {
+        if (depth.equals(depthLimit)) {
             return new Pair(evaluation(state), null);
         }
 
@@ -245,14 +245,14 @@ class CheckerGame {
 //            System.out.println("maxValue fromMinPlayer: " + fromMinPlayer.getKey());
 //            System.out.println("----------------------------");
 
-            if (fromMinPlayer.getKey() > value.getKey()) {
+            if (Double.compare(fromMinPlayer.getKey(), value.getKey()) > 0) {
                 value = new Pair<>(fromMinPlayer.getKey(), move);
             }
 
             System.out.println("maxValue value: " + value.getKey());
             System.out.println("maxValue move: " + value.getValue().getFrom() + " -> " + value.getValue().getTo());
 
-            if (value.getKey() >= beta) return value;
+            if (Double.compare(value.getKey(), beta) >= 0) return value;
             alpha = Math.max(alpha, value.getKey());
 
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
@@ -275,7 +275,7 @@ class CheckerGame {
             return new Pair(utility(state), null);
         }
 
-        if (depth == depthLimit) {
+        if (depth.equals(depthLimit)) {
             return new Pair(evaluation(state), null);
         }
 
@@ -287,13 +287,13 @@ class CheckerGame {
             nextState.printBoard();
             nextState.setIsPlayerTurn(true);
             Pair<Double, Move> fromMaxPlayer = maxValue(nextState, alpha, beta, depth+1);
-            if (fromMaxPlayer.getKey() < value.getKey()) {
+            if (Double.compare(fromMaxPlayer.getKey(), value.getKey()) < 0) {
                 value = new Pair<>(fromMaxPlayer.getKey(), move);
             }
             System.out.println("minValue value: " + value.getKey());
             System.out.println("minValue move: " + value.getValue().getFrom() + " -> " + value.getValue().getTo());
 
-            if (value.getKey() <= alpha) return value;
+            if (Double.compare(value.getKey(), alpha) <= 0) return value;
             beta = Math.min(beta, value.getKey());
 
             if (Mode.SINGLE.equals(state.getMode()) && 0.95 * state.getTimeRemaining() < getUseTime()) {
@@ -724,8 +724,8 @@ class CheckerGame {
             regularDirs = new int[][]{{1, -1}, {-1, -1}};
             captureDirs = new int[][]{{2, -2}, {-2, -2}};
         } else {
-            regularDirs = new int[][]{{1, 1}, {-1, 1}};
-            captureDirs = new int[][]{{2, 2}, {-2, 2}};
+            regularDirs = new int[][]{{-1, 1}, {1, 1}};
+            captureDirs = new int[][]{{-2, 2}, {2, 2}};
         }
 
         // Prioritize regular moves by index in play history
