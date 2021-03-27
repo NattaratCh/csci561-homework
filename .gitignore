@@ -1,5 +1,5 @@
 .idea/
-AI.iml
+*.iml
 out/
 HW2/opponent/*
 HW2/player/*
