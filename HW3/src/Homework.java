@@ -1,20 +1,22 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
+import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by nuning on 3/27/21.
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input1.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
         inferenceSystem.startInference();
     }
 }
 
 class InferenceSystem {
     private InferenceInput inferenceInput;
+    private final int LIMIT_KB_SIZE = 1000;
     public InferenceSystem(String filename) {
         inferenceInput = readInput(filename);
         inferenceInput.print();
@@ -41,23 +43,43 @@ class InferenceSystem {
             }
 
             Integer numberOfKB = Integer.valueOf(reader.readLine().trim());
-            for(int i=0; i<numberOfKB; i++) {
-                String sentence = reader.readLine().trim();
+            String line = reader.readLine();
+            while (line != null){
+                String sentence = line.trim();
                 Sentence s = parseSentence(sentence);
                 inferenceInput.addKB(s);
+                line = reader.readLine();
             }
 
             return inferenceInput;
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("readInput: " + e.getMessage());
             return null;
         }
     }
 
     public void startInference() {
+        List<Boolean> result = new ArrayList<>();
         for(Sentence q: inferenceInput.getQueries()) {
             boolean valid = ask(inferenceInput.getKB(), q);
             System.out.println(valid);
+            result.add(valid);
+        }
+        writeOutput(result);
+    }
+
+    public void writeOutput(List<Boolean> result) {
+        try {
+            // TODO change output path
+            FileWriter writer = new FileWriter("./src/output.txt");
+            for (Boolean v: result) {
+                writer.write(String.valueOf(v).toUpperCase());
+                writer.write(System.lineSeparator());
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -123,9 +145,13 @@ class InferenceSystem {
                 System.out.println("resolution | p1 = " + p1.toString() + " ;; p2 = " + p2.toString() );
                 if (p1.isExactComplement(p2)) {
                     // p v ~q, q v r = p v r
-                    s1.removePredicate(p1);
-                    s2.removePredicate(p2);
-                    Sentence result = mergeSentence(s1, s2);
+                    Sentence cloneS1 = new Sentence(s1);
+                    Sentence cloneS2 = new Sentence(s2);
+                    cloneS1.removePredicate(p1);
+                    cloneS2.removePredicate(p2);
+                    System.out.println("resolution | s1 = " + cloneS1.toString());
+                    System.out.println("resolution | s2 = " + cloneS2.toString());
+                    Sentence result = mergeSentence(cloneS1, cloneS2);
                     System.out.println("resolution | result: " + result.toString());
                     return result;
                 } else if (p1.isComplement(p2)) {
@@ -134,17 +160,18 @@ class InferenceSystem {
                     if (unifier.isFailure()) {
                         System.out.println("resolution | cannot unify");
                     } else if (!unifier.isFailure() && !unifier.isEmpty()) {
-                        System.out.println("resolution | Unification is found");
-                        System.out.println(unifier.toString());
+                        System.out.println("resolution | Unification is found " + unifier.toString());
 
-                        s1.removePredicate(p1);
-                        s2.removePredicate(p2);
+                        Sentence cloneS1 = new Sentence(s1);
+                        Sentence cloneS2 = new Sentence(s2);
+                        cloneS1.removePredicate(p1);
+                        cloneS2.removePredicate(p2);
 
-                        System.out.println(s1.toString());
-                        System.out.println(s2.toString());
+                        System.out.println("resolution | s1 = " + cloneS1.toString());
+                        System.out.println("resolution | s2 = " + cloneS2.toString());
 
-                        Sentence ss1 = substitute(s1, unifier);
-                        Sentence ss2 = substitute(s2, unifier);
+                        Sentence ss1 = substitute(cloneS1, unifier);
+                        Sentence ss2 = substitute(cloneS2, unifier);
                         Sentence result = mergeSentence(ss1, ss2);
                         System.out.println("resolution | result: " + result.toString());
                         return result;
@@ -155,6 +182,7 @@ class InferenceSystem {
 
         Sentence s = new Sentence();
         s.setFailure(true);
+        System.out.println("resolution | failure");
         return s;
     }
 
@@ -214,32 +242,117 @@ class InferenceSystem {
         }
     }
 
+    public boolean isTautology(Sentence s) {
+        List<Predicate> predicates = s.getPredicates();
+        for(int i=0; i<predicates.size(); i++) {
+            Predicate p1 = predicates.get(i);
+            for(int j=i+1; j<predicates.size(); j++) {
+                Predicate p2 = predicates.get(j);
+                if (p1.isComplement(p2)) {
+                    // p(x) , ~p(K)
+                    Unifier unifier = unify(p1, p2);
+                    if (unifier.isEmpty() || unifier.isFailure()) {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isSubset(List<Sentence> KB, List<Sentence> newClauses) {
+        int count = 0;
+        for(Sentence s: newClauses) {
+            if (binarySearch(KB, s, 0, KB.size()-1)) {
+                count++;
+            }
+        }
+        return count == newClauses.size();
+    }
+
+    public boolean binarySearch(List<Sentence> KB, Sentence s, int start, int end) {
+        if (start > end) return false;
+        int mid = start + (end-start)/2;
+        if (KB.get(mid).equals(s)) {
+            return true;
+        }
+
+        if (KB.get(mid).compareTo(s) > 1) {
+            return binarySearch(KB, s, start, mid - 1);
+        } else {
+            return binarySearch(KB, s, mid + 1, end);
+        }
+    }
+
+    public List<Sentence> difference(List<Sentence> KB, List<Sentence> newClauses) {
+        return newClauses.stream()
+                .filter(e -> !KB.contains(e))
+                .collect(Collectors.toList());
+    }
+
     public boolean ask(List<Sentence> KB, Sentence query) {
         List<Sentence> clauses = new ArrayList<>();
         clauses.addAll(KB);
         clauses.add(query);
 
+        Set<Sentence> newClauses = new HashSet<>();
         Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
-        for (int i=0; i<clauses.size(); i++) {
-            Sentence a = clauses.get(i);
-            for (int j=i+1; j<clauses.size(); j++) {
-                Sentence b = clauses.get(j);
-                if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) continue;
 
-                Sentence result = resolution(a, b);
-                visited.add(new Pair<>(a, b));
-                visited.add(new Pair<>(b, a));
+        int round = 0;
 
-                if (!result.isFailure() && result.isEmpty()) {
-                    // Contradiction
-                    return true;
-                }
+        while (true) {
+            round++;
+            System.out.println("--------------");
+            System.out.println("ROUND: " + round);
+            for(Sentence s: clauses) System.out.println(s.toString());
+            System.out.println("--------------");
 
-                if (result.isFailure()) continue;
-
+            if (clauses.size() > LIMIT_KB_SIZE) {
+                System.out.println("ask | KB size exceeds the limit, return false");
+                return false;
             }
+
+            for (int i=0; i<clauses.size(); i++) {
+                Sentence a = clauses.get(i);
+                for (int j=i+1; j<clauses.size(); j++) {
+                    Sentence b = clauses.get(j);
+                    System.out.println("#################");
+                    System.out.println("ask | a = " + a.toString());
+                    System.out.println("ask | b = " + b.toString());
+                    if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) continue;
+
+                    Sentence result = resolution(a, b);
+                    visited.add(new Pair<>(a, b));
+                    visited.add(new Pair<>(b, a));
+
+                    if (!result.isFailure() && result.isEmpty()) {
+                        // Contradiction
+                        return true;
+                    }
+
+                    if (result.isFailure()) continue;
+                    if (isTautology(result)) {
+                        System.out.println("ask | resolution is tautology");
+                        continue;
+                    }
+
+                    newClauses.add(result);
+                    // TODO factoring??
+                }
+            }
+
+            // if newClauses is subset of KB, return false
+            Collections.sort(clauses, new SentenceComparator());
+            if (isSubset(clauses, new ArrayList<>(newClauses))) {
+                System.out.println("ask | newClauses is subset of KB, return false");
+                return false;
+            }
+            // update only new clauses to KB
+            List<Sentence> updateClauses = difference(clauses, new ArrayList<>(newClauses));
+            clauses.addAll(updateClauses);
         }
-        return false;
     }
 }
 
@@ -259,6 +372,13 @@ class Predicate {
         }
         this.predicate = predicate;
         arguments = new ArrayList<>();
+    }
+
+    public Predicate(Predicate p) {
+        this.isNegative = p.isNegative;
+        this.predicate = p.predicate;
+        this.arguments = new ArrayList<>();
+        this.arguments.addAll(p.arguments);
     }
 
     public String toString() {
@@ -342,6 +462,16 @@ class Sentence {
         this.predicates = predicates;
     }
 
+    public Sentence(Sentence s) {
+        this.id = s.id;
+        this.isFailure = s.isFailure;
+        this.predicates = new ArrayList<>();
+        Iterator<Predicate> it = s.getPredicates().iterator();
+        while (it.hasNext()) {
+            predicates.add(new Predicate(it.next()));
+        }
+    }
+
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for(int i=0; i<predicates.size(); i++) {
@@ -349,6 +479,19 @@ class Sentence {
             if (i != predicates.size()-1) sb.append(" | ");
         }
         return sb.toString();
+    }
+
+    public boolean equals(Sentence s) {
+        if (this == s) return true;
+        return id == s.id;
+    }
+
+    public int hashCode() {
+        return 31 + (int) id;
+    }
+
+    public int compareTo(Sentence s) {
+        return (int) (this.id - s.id);
     }
 
     public void addPredicate(Predicate predicate) {
@@ -371,21 +514,25 @@ class Sentence {
         return predicates;
     }
 
-    public boolean equals(Sentence s) {
-        if (this == s) return true;
-        return id == s.id;
-    }
-
-    public int hashCode() {
-        return 31 + (int) id;
-    }
-
     public boolean isEmpty() {
         return predicates.size() == 0;
     }
 
     public void removePredicate(Predicate p) {
-        predicates.remove(p);
+        for(Predicate predicate: predicates) {
+            if (p.toString().equals(predicate.toString())) {
+                this.predicates.remove(predicate);
+                return;
+            }
+        }
+    }
+}
+
+class SentenceComparator implements Comparator<Sentence> {
+
+    @Override
+    public int compare(Sentence o1, Sentence o2) {
+        return (int) (o1.getId() - o2.getId());
     }
 }
 
@@ -474,7 +621,7 @@ class InferenceInput {
 
 class Utility {
     public static boolean isVariable(String argument) {
-        return Character.isUpperCase(argument.charAt(0));
+        return Character.isLowerCase(argument.charAt(0));
     }
 }
 
