@@ -1,8 +1,7 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by nuning on 3/27/21.
@@ -10,6 +9,7 @@ import java.util.List;
 public class Homework {
     public static void main(String[] args) {
         InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input1.txt");
+        inferenceSystem.startInference();
     }
 }
 
@@ -18,6 +18,7 @@ class InferenceSystem {
     public InferenceSystem(String filename) {
         inferenceInput = readInput(filename);
         inferenceInput.print();
+
     }
 
     public InferenceInput readInput(String filename) {
@@ -32,6 +33,10 @@ class InferenceSystem {
                 // Query is an atomic sentence / no variables
                 String query = reader.readLine().trim();
                 Sentence s = parseSentence(query);
+                if (s.getPredicates().size() == 1) {
+                    // Add negation of query to proof by contradiction
+                    s.getPredicates().get(0).negate();
+                }
                 inferenceInput.addQuery(s);
             }
 
@@ -46,6 +51,13 @@ class InferenceSystem {
         } catch (Exception e) {
             System.out.println("readInput: " + e.getMessage());
             return null;
+        }
+    }
+
+    public void startInference() {
+        for(Sentence q: inferenceInput.getQueries()) {
+            boolean valid = ask(inferenceInput.getKB(), q);
+            System.out.println(valid);
         }
     }
 
@@ -86,6 +98,148 @@ class InferenceSystem {
             p.addArgument(arg.trim());
         }
         return p;
+    }
+
+    public Sentence mergeSentence(Sentence a, Sentence b) {
+        Set<Predicate> predicates = new HashSet<>();
+        for(Predicate p: a.getPredicates()) {
+            predicates.add(p);
+        }
+
+        for(Predicate p: b.getPredicates()) {
+            predicates.add(p);
+        }
+
+        Sentence sentence = new Sentence(new ArrayList<>(predicates));
+        return sentence;
+    }
+
+    public Sentence resolution(Sentence s1, Sentence s2) {
+        List<Predicate> s1Predicates = s1.getPredicates();
+        List<Predicate> s2Predicates = s2.getPredicates();
+
+        for (Predicate p1: s1Predicates) {
+            for(Predicate p2: s2Predicates) {
+                System.out.println("resolution | p1 = " + p1.toString() + " ;; p2 = " + p2.toString() );
+                if (p1.isExactComplement(p2)) {
+                    // p v ~q, q v r = p v r
+                    s1.removePredicate(p1);
+                    s2.removePredicate(p2);
+                    Sentence result = mergeSentence(s1, s2);
+                    System.out.println("resolution | result: " + result.toString());
+                    return result;
+                } else if (p1.isComplement(p2)) {
+                    // unification
+                    Unifier unifier = unify(p1, p2);
+                    if (unifier.isFailure()) {
+                        System.out.println("resolution | cannot unify");
+                    } else if (!unifier.isFailure() && !unifier.isEmpty()) {
+                        System.out.println("resolution | Unification is found");
+                        System.out.println(unifier.toString());
+
+                        s1.removePredicate(p1);
+                        s2.removePredicate(p2);
+
+                        System.out.println(s1.toString());
+                        System.out.println(s2.toString());
+
+                        Sentence ss1 = substitute(s1, unifier);
+                        Sentence ss2 = substitute(s2, unifier);
+                        Sentence result = mergeSentence(ss1, ss2);
+                        System.out.println("resolution | result: " + result.toString());
+                        return result;
+                    }
+                }
+            }
+        }
+
+        Sentence s = new Sentence();
+        s.setFailure(true);
+        return s;
+    }
+
+    public Sentence substitute(Sentence s, Unifier unifier) {
+        for(Predicate p: s.getPredicates()) {
+            for(int i=0; i<p.getArguments().size(); i++) {
+                String arg = p.getArguments().get(i);
+                if (Utility.isVariable(arg)) {
+                    String constant = unifier.getSubstitution(arg);
+                    if (constant != null) {
+                        p.substitute(constant, i);
+                    }
+                }
+            }
+        }
+        return s;
+    }
+
+    public Unifier unify(Predicate p1, Predicate p2) {
+        if (!p1.getPredicate().equals(p2.getPredicate())) return null;
+        Unifier unifier = new Unifier();
+
+        for(int i=0; i<p1.getArguments().size(); i++) {
+            String arg1 = p1.getArguments().get(i);
+            String arg2 = p2.getArguments().get(i);
+
+            unifySingleTerm(arg1, arg2, unifier);
+        }
+
+        return unifier;
+    }
+
+    public void unifySingleTerm(String arg1, String arg2, Unifier unifier) {
+        if (unifier.isFailure()) {
+            return;
+        } else if (arg1.equals(arg2)) {
+            // { Constant/Constant }, { x/x }
+            return;
+        } else if (Utility.isVariable(arg1)) {
+            // { x/y, x/Constant }
+            unifyVariable(arg1, arg2, unifier);
+        } else if (Utility.isVariable(arg2)) {
+            // // { x/y, Constant/y }
+            unifyVariable(arg2, arg1, unifier);
+        } else {
+            unifier.setFailure(true);
+        }
+    }
+
+    public void unifyVariable(String variable, String constant, Unifier unifier) {
+        if (unifier.getSubstitution(variable) != null) {
+            unifySingleTerm(unifier.getSubstitution(variable), constant, unifier);
+        } else if (unifier.getSubstitution(constant) != null) {
+            unifySingleTerm(variable, unifier.getSubstitution(constant), unifier);
+        } else {
+            unifier.addSubstitution(variable, constant);
+        }
+    }
+
+    public boolean ask(List<Sentence> KB, Sentence query) {
+        List<Sentence> clauses = new ArrayList<>();
+        clauses.addAll(KB);
+        clauses.add(query);
+
+        Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
+        for (int i=0; i<clauses.size(); i++) {
+            Sentence a = clauses.get(i);
+            for (int j=i+1; j<clauses.size(); j++) {
+                Sentence b = clauses.get(j);
+                if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) continue;
+
+                Sentence result = resolution(a, b);
+                visited.add(new Pair<>(a, b));
+                visited.add(new Pair<>(b, a));
+
+                if (!result.isFailure() && result.isEmpty()) {
+                    // Contradiction
+                    return true;
+                }
+
+                if (result.isFailure()) continue;
+
+            }
+        }
+        return false;
     }
 }
 
@@ -139,21 +293,53 @@ class Predicate {
     public void addArgument(String argument) {
         arguments.add(argument);
     }
+
+    public boolean isComplement(Predicate p2) {
+        if (predicate.equals(p2.predicate) && isNegative == !p2.isNegative() && arguments.size() == p2.getArguments().size()) {
+            for(int i=0; i<arguments.size(); i++) {
+                String a = arguments.get(i);
+                String b = p2.getArguments().get(i);
+                if (!Utility.isVariable(a) && !Utility.isVariable(b) && !a.equals(b)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isExactComplement(Predicate p2) {
+        if (predicate.equals(p2.predicate) && isNegative == !p2.isNegative() && arguments.size() == p2.getArguments().size()) {
+            for(int i=0; i<arguments.size(); i++) {
+                String a = arguments.get(i);
+                String b = p2.getArguments().get(i);
+                if (!a.equals(b)) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public void substitute(String constant, int index) {
+        arguments.remove(index);
+        arguments.add(index, constant);
+    }
 }
 
 class Sentence {
     private static long runningID = 1;
     private long id;
     private List<Predicate> predicates;
-    private boolean isFalse = false;
+    private boolean isFailure = false;
 
     public Sentence() {
         id = runningID++;
         predicates = new ArrayList<>();
     }
-    public Sentence(Predicate predicate) {
+
+    public Sentence(List<Predicate> predicates) {
         id = runningID++;
-        predicates.add(predicate);
+        this.predicates = predicates;
     }
 
     public String toString() {
@@ -169,12 +355,12 @@ class Sentence {
         predicates.add(predicate);
     }
 
-    public boolean isFalse() {
-        return isFalse;
+    public boolean isFailure() {
+        return isFailure;
     }
 
-    public void setFalse(boolean aFalse) {
-        isFalse = aFalse;
+    public void setFailure(boolean isFailure) {
+        this.isFailure = isFailure;
     }
 
     public long getId() {
@@ -183,6 +369,68 @@ class Sentence {
 
     public List<Predicate> getPredicates() {
         return predicates;
+    }
+
+    public boolean equals(Sentence s) {
+        if (this == s) return true;
+        return id == s.id;
+    }
+
+    public int hashCode() {
+        return 31 + (int) id;
+    }
+
+    public boolean isEmpty() {
+        return predicates.size() == 0;
+    }
+
+    public void removePredicate(Predicate p) {
+        predicates.remove(p);
+    }
+}
+
+class Unifier {
+    private Map<String, String> substitution;
+    private boolean isFailure = false;
+
+    public Unifier() {
+        substitution = new HashMap<>();
+    }
+
+    public void addSubstitution(String key, String value) {
+        substitution.put(key, value);
+    }
+
+    public String getSubstitution(String key) {
+        return substitution.getOrDefault(key, null);
+    }
+
+    public boolean isFailure() {
+        return isFailure;
+    }
+
+    public void setFailure(boolean failure) {
+        isFailure = failure;
+    }
+
+    public boolean isEmpty() {
+        return substitution.size() == 0;
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        int i=0;
+        for(String key: substitution.keySet()) {
+            String value = substitution.get(key);
+            sb.append(key + "/" + value);
+            if (i != substitution.size()-1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("}");
+        if (isFailure()) sb.append("[FAILURE]");
+        return sb.toString();
     }
 }
 
@@ -221,5 +469,41 @@ class InferenceInput {
         for(Sentence s: KB) {
             System.out.println(s.toString());
         }
+    }
+}
+
+class Utility {
+    public static boolean isVariable(String argument) {
+        return Character.isUpperCase(argument.charAt(0));
+    }
+}
+
+class Pair<U, V> {
+    private U first;
+    private V second;
+
+    public Pair(U first, V second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public U getFirst() {
+        return first;
+    }
+
+    public V getSecond() {
+        return second;
+    }
+
+    public boolean equals(Pair<U, V> p) {
+        if (this == p) return true;
+        return first.equals(p.getFirst()) && second.equals(p.getSecond());
+    }
+
+    public int hashCode() {
+        int hash = 5;
+        hash = 79 * hash + (first != null ? first.hashCode() : 0);
+        hash = 79 * hash + (second != null ? second.hashCode() : 0);
+        return hash;
     }
 }
