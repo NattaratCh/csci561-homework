@@ -1,11 +1,9 @@
-1
-Learn(Sit,Ares)
-8
-Ready(x) => Train(Come,x)
-Healthy(x) & Train(y,x) => Learn(y,x)
-Learn(Come,x) => Train(Sit,x)
-Learn(Come,x) & Learn(Sit,x) => Train(Down,x)
-Learn(Down,x) => Graduate(x)
-Ready(Hayley)
-Ready(Ares)
-Healthy(Ares)
+2
+Alert(Bob,NSAIDs)
+Alert(Bob,VitC)
+5
+Take(x,Warfarin) => ~Take(x,NSAIDs)
+HighBP(x) => Alert(x,NSAIDs)
+Take(Bob,Antacids)
+Take(Bob,VitA)
+HighBP(Bob)

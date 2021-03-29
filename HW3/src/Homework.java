@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input6.txt");
-        inferenceSystem.startInference();
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
+        //inferenceSystem.startInference();
     }
 }
 
@@ -17,11 +17,11 @@ class InferenceSystem {
     private final int LIMIT_KB_SIZE = 1000;
     private final double LIMIT_TIME_IN_SECONDS = 60.0;
     private int lastIndexOfNewClauses = 0;
+    private int STANDARD_VARIABLE_COUNT = 0;
     private long startTime = 0;
     public InferenceSystem(String filename) {
         inferenceInput = readInput(filename);
         inferenceInput.print();
-
     }
 
     public InferenceInput readInput(String filename) {
@@ -48,6 +48,7 @@ class InferenceSystem {
             while (line != null){
                 String sentence = line.trim();
                 Sentence s = parseSentence(sentence);
+                standardizeVariable(s);
                 inferenceInput.addKB(s);
                 Sentence factorSentence = factoring(s);
                 if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
@@ -68,6 +69,7 @@ class InferenceSystem {
         List<Boolean> result = new ArrayList<>();
         for(Sentence q: inferenceInput.getQueries()) {
             lastIndexOfNewClauses = 0;
+            STANDARD_VARIABLE_COUNT = 0;
             startTime = System.nanoTime();
             boolean valid = ask(inferenceInput.getKB(), q);
             System.out.println(valid);
@@ -90,6 +92,25 @@ class InferenceSystem {
         }
     }
 
+    public void standardizeVariable(Sentence s) {
+        List<Predicate> predicates = s.getPredicates();
+        Map<String, String> map = new HashMap<>();
+        for(Predicate p: predicates) {
+            for(int i=0; i<p.getArguments().size(); i++) {
+                String arg = p.getArguments().get(i);
+                if (Utility.isVariable(arg)) {
+                    if (map.containsKey(arg)) {
+                        p.setArgument(i, map.get(arg));
+                    } else {
+                        String newVariable = Utility.getStandardVariable(STANDARD_VARIABLE_COUNT++);
+                        map.put(arg, newVariable);
+                        p.setArgument(i, newVariable);
+                    }
+                }
+            }
+        }
+    }
+
     public Sentence parseSentence(String sentenceStr) {
         Sentence sentence = new Sentence();
         int index = sentenceStr.indexOf("=>");
@@ -107,7 +128,9 @@ class InferenceSystem {
             // conclusion is an atomic sentence
             String conclusion = sentenceStr.substring(index + 2).trim();
             Predicate conclusionPredicate = parsePredicate(conclusion);
-            sentence.addPredicate(conclusionPredicate);
+            if (!conclusionPredicate.getPredicate().equals("False")) {
+                sentence.addPredicate(conclusionPredicate);
+            }
         } else {
             // atomic sentence p or ~p
             Predicate predicate = parsePredicate(sentenceStr);
@@ -251,6 +274,9 @@ class InferenceSystem {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
                 Predicate p2 = predicates.get(j);
+                if (p1.isExactComplement(p2)) {
+                    return true;
+                }
                 if (p1.isComplement(p2)) {
                     // p(x) , ~p(K)
                     Unifier unifier = unify(p1, p2);
@@ -302,7 +328,7 @@ class InferenceSystem {
 
     public Sentence factoring(Sentence s) {
         // e.g. P(x) v P(C) v Q(x) = P(C) v Q(C)
-        System.out.println("factoring | try factoring " + s.toString());
+        // System.out.println("factoring | try factoring " + s.toString());
         List<Predicate> predicates = s.getPredicates();
         Sentence cloneS = new Sentence(s);
         cloneS.setFailure(true);
@@ -331,7 +357,7 @@ class InferenceSystem {
                 }
             }
         }
-        System.out.println("factoring | after factoring " + cloneS.toString());
+        //System.out.println("factoring | after factoring " + cloneS.toString());
         return cloneS;
     }
 
@@ -385,6 +411,7 @@ class InferenceSystem {
                     Sentence result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
                     visited.add(new Pair<>(b, a));
+                    System.out.println("ask | resolution result = " + result.toString());
 
                     if (!result.isFailure() && result.isEmpty()) {
                         // Contradiction
@@ -392,6 +419,7 @@ class InferenceSystem {
                     }
 
                     if (result.isFailure()) continue;
+
                     if (isTautology(result)) {
                         System.out.println("ask | resolution is tautology");
                         continue;
@@ -401,7 +429,7 @@ class InferenceSystem {
                         newClauses.add(result);
                         System.out.println("ask | add " + result.toString() + " to newClauses");
                         Sentence factorSentence = factoring(result);
-                        if (!factorSentence.isFailure() && isTautology(factorSentence)) {
+                        if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
                             newClauses.add(factorSentence);
                             System.out.println("ask | [factoring] add " + factorSentence.toString() + " to newClauses");
                         }
@@ -435,7 +463,6 @@ class Predicate {
 
     public Predicate(String predicate) {
         if (predicate.charAt(0) == '~') {
-            System.out.println(predicate + " negative");
             isNegative = true;
             predicate = predicate.substring(1);
         }
@@ -477,6 +504,10 @@ class Predicate {
 
     public List<String> getArguments() {
         return arguments;
+    }
+
+    public void setArgument(int index, String value) {
+        this.arguments.set(index, value);
     }
 
     public void addArgument(String argument) {
@@ -743,6 +774,22 @@ class ResolutionResult {
 class Utility {
     public static boolean isVariable(String argument) {
         return Character.isLowerCase(argument.charAt(0));
+    }
+
+    public static String getStandardVariable(int count) {
+        if (count < 26) {
+            return Character.toString((char)(count + 'a'));
+        }
+        int a = 'a';
+        StringBuilder sb = new StringBuilder();
+        while (count >= 26) {
+            int mod = count % 26;
+            sb.append((char) (mod + a));
+            count = count / 26;
+        }
+
+        sb.append((char) ((count-1) + a));
+        return sb.toString();
     }
 }
 
