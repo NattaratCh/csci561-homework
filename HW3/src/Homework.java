@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases1/input20.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases1/input18.txt");
         inferenceSystem.startInference();
     }
 }
@@ -157,9 +157,9 @@ class InferenceSystem {
         }
 
         List<Predicate> predicateList = new ArrayList<>(predicates);
-        Collections.sort(predicateList, new PredicateComparator());
 
         Sentence sentence = new Sentence(predicateList);
+        sentence.sortPredicates();
         return sentence;
     }
 
@@ -314,12 +314,13 @@ class InferenceSystem {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
                 Predicate p2 = predicates.get(j);
-//                if (p1.isExactComplement(p2)) {
-//                    return true;
-//                }
+                if (p1.isComplement(p2)) {
+                    return true;
+                }
                 if (p1.isPredicateComplement(p2)) {
                     // p(x) , ~p(K)
                     Unifier unifier = unify(p1, p2);
+                    System.out.println("isTautology | " + p1 + " ## " + p2 + " unifier = " + unifier.isFailure() + ", " + unifier.toString());
                     if (unifier.isEmpty() || unifier.isFailure()) {
                         return false;
                     } else {
@@ -338,25 +339,30 @@ class InferenceSystem {
         for(int i=0; i<newClauses.size(); i++) {
             Sentence s = newClauses.get(i);
             //System.out.println("isSubset | s " + s.toString() );
-            if (binarySearch(KB, s, 0, KB.size()-1)) {
-            //if (KB.contains(s)) {
-                count++;
+            // if (binarySearch(KB, s, 0, KB.size()-1)) {
+            if (!KB.contains(s)) {
+                //count++;
+                return false;
             }
         }
-        return count == newClauses.size();
+        //return count == newClauses.size();
+        return true;
     }
 
     public boolean binarySearch(List<Sentence> KB, Sentence s, int start, int end) {
+        //System.out.println("binarySearch | range " + start + " " + end);
         if (start > end) return false;
         int mid = start + (end-start)/2;
-        //System.out.println("binarySearch | mid = " + KB.get(mid));
+        //System.out.println("binarySearch | s = " + s.toString() + " mid = " + KB.get(mid));
         if (KB.get(mid).equals(s)) {
             return true;
         }
 
         if (KB.get(mid).compareTo(s) > 1) {
+            //System.out.println("binarySearch | start to mid-1");
             return binarySearch(KB, s, start, mid - 1);
         } else {
+            //System.out.println("binarySearch | mid+1 to end");
             return binarySearch(KB, s, mid + 1, end);
         }
     }
@@ -371,7 +377,7 @@ class InferenceSystem {
         // e.g. P(x) v P(C) v Q(x) = P(C) v Q(C)
         // System.out.println("factoring | try factoring " + s.toString());
         List<Predicate> predicates = s.getPredicates();
-        Sentence cloneS = new Sentence(s, true);
+        Sentence cloneS = new Sentence(s, false);
         for(int i=0; i<predicates.size(); i++) {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
@@ -387,6 +393,7 @@ class InferenceSystem {
                         System.out.println("factoring | Unification is found " + unifier.toString());
                         cloneS.removePredicate(p2);
                         Sentence result = substitute(cloneS, unifier);
+                        result.sortPredicates();
                         System.out.println("factoring | result: " + result.toString());
                         return cloneS;
                     }
@@ -424,7 +431,7 @@ class InferenceSystem {
         int round = 0;
 
         while (true) {
-            round++;
+            round += 1;
             System.out.println("--------------");
             System.out.println("ROUND: " + round);
            // for(Sentence s: clauses) System.out.println(s.toString());
@@ -451,12 +458,15 @@ class InferenceSystem {
                     System.out.println("#################");
                     System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
                     System.out.println("ask | id = " + b.getId() +" b = " + b.toString());
-                    if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) continue;
+                    if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) {
+                        System.out.println("ask | Visited skip");
+                        continue;
+                    };
 
                     Sentence result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
                     visited.add(new Pair<>(b, a));
-                    System.out.println("ask | resolution result = " + result.toString());
+                    System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
                     if (!result.isFailure() && result.isEmpty()) {
                         // Contradiction
@@ -482,6 +492,11 @@ class InferenceSystem {
                 }
             }
 
+            System.out.println("*** new ****");
+            //Collections.sort(clauses, sc);
+            for(Sentence s: newClauses) {
+                System.out.println(s.getId() + " " +s.toString());
+            }
             // if newClauses is subset of KB, return false
             Collections.sort(clauses, sc);
             if (isSubset(clauses, new ArrayList<>(newClauses))) {
@@ -489,11 +504,17 @@ class InferenceSystem {
                 return false;
             }
             // update only new clauses to KB
+//            System.out.println("*******");
+//            for(Sentence s: clauses) System.out.println(s.toString());
             List<Sentence> updateClauses = difference(clauses, new ArrayList<>(newClauses));
-            clauses.addAll(updateClauses);
+            System.out.println("ask | updateClauses size = " + updateClauses.size());
+            if (!updateClauses.isEmpty()) clauses.addAll(updateClauses);
 
-//        System.out.println("*******");
-//         for(Sentence s: clauses) System.out.println(s.toString());
+         System.out.println("*******");
+         Collections.sort(clauses, sc);
+         for(Sentence s: clauses) {
+             System.out.println(s.getId() + " " +s.toString());
+         }
         }
         //return false;
     }
@@ -628,6 +649,27 @@ class Predicate {
             return predicate.compareTo(p2.getPredicate());
         }
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof  Predicate)) return false;
+        Predicate p = (Predicate) o;
+        if (!this.predicate.equals(p.getPredicate())) return false;
+        if (this.isNegative != p.isNegative()) return false;
+        if (this.arguments.size() != p.getArguments().size()) return false;
+
+        for(int i=0; i<this.arguments.size(); i++) {
+            String arg1 = this.arguments.get(i);
+            String arg2 = p.getArguments().get(i);
+            if (!Utility.isVariable(arg1) && !Utility.isVariable(arg2) && !arg1.equals(arg2)) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return this.toString().hashCode();
+    }
 }
 
 class PredicateComparator implements Comparator<Predicate> {
@@ -673,13 +715,23 @@ class Sentence {
         return sb.toString();
     }
 
-    public boolean equals(Sentence s) {
-        if (this == s) return true;
-        return this.toString().equals(s.toString());
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!( o instanceof  Sentence)) return false;
+        Sentence s = (Sentence) o;
+        if (predicates.size() != ((Sentence) o).getPredicates().size()) return false;
+        for(int i=0; i<predicates.size(); i++) {
+            Predicate p1 = predicates.get(i);
+            Predicate p2 = s.getPredicates().get(i);
+            if (!p1.equals(p2)) return false;
+        }
+        return true;
     }
 
+    @Override
     public int hashCode() {
-        return 31 + (int) id;
+        return toString().hashCode();
     }
 
     public void addPredicate(Predicate predicate) {
@@ -809,12 +861,12 @@ class InferenceInput {
     public void print() {
         System.out.println("====== Queries ======");
         for(Sentence s: queries) {
-            System.out.println(s.toString());
+            System.out.println(s.getId() + " " + s.toString());
         }
 
         System.out.println("====== KB ======");
         for(Sentence s: KB) {
-            System.out.println(s.toString());
+            System.out.println(s.getId() + " " + s.toString());
         }
     }
 }
@@ -842,11 +894,15 @@ class Pair<U, V> {
         return second;
     }
 
-    public boolean equals(Pair<U, V> p) {
-        if (this == p) return true;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof  Pair)) return false;
+        Pair<U, V> p = (Pair) o;
         return first.equals(p.getFirst()) && second.equals(p.getSecond());
     }
 
+    @Override
     public int hashCode() {
         int hash = 5;
         hash = 79 * hash + (first != null ? first.hashCode() : 0);
