@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
-        //inferenceSystem.startInference();
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases1/input20.txt");
+        inferenceSystem.startInference();
     }
 }
 
@@ -16,8 +16,7 @@ class InferenceSystem {
     private InferenceInput inferenceInput;
     private final int LIMIT_KB_SIZE = 1000;
     private final double LIMIT_TIME_IN_SECONDS = 60.0;
-    private int lastIndexOfNewClauses = 0;
-    private int STANDARD_VARIABLE_COUNT = 0;
+    private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
     public InferenceSystem(String filename) {
         inferenceInput = readInput(filename);
@@ -45,16 +44,18 @@ class InferenceSystem {
 
             Integer numberOfKB = Integer.valueOf(reader.readLine().trim());
             String line = reader.readLine();
+            int n = 1;
             while (line != null){
                 String sentence = line.trim();
                 Sentence s = parseSentence(sentence);
-                standardizeVariable(s);
+                standardizeVariable(s, n);
                 inferenceInput.addKB(s);
                 Sentence factorSentence = factoring(s);
                 if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
                     inferenceInput.addKB(factorSentence);
                 }
                 line = reader.readLine();
+                n++;
             }
 
             return inferenceInput;
@@ -68,8 +69,6 @@ class InferenceSystem {
     public void startInference() {
         List<Boolean> result = new ArrayList<>();
         for(Sentence q: inferenceInput.getQueries()) {
-            lastIndexOfNewClauses = 0;
-            STANDARD_VARIABLE_COUNT = 0;
             startTime = System.nanoTime();
             boolean valid = ask(inferenceInput.getKB(), q);
             System.out.println(valid);
@@ -92,20 +91,13 @@ class InferenceSystem {
         }
     }
 
-    public void standardizeVariable(Sentence s) {
+    public void standardizeVariable(Sentence s, int n) {
         List<Predicate> predicates = s.getPredicates();
-        Map<String, String> map = new HashMap<>();
         for(Predicate p: predicates) {
             for(int i=0; i<p.getArguments().size(); i++) {
                 String arg = p.getArguments().get(i);
                 if (Utility.isVariable(arg)) {
-                    if (map.containsKey(arg)) {
-                        p.setArgument(i, map.get(arg));
-                    } else {
-                        String newVariable = Utility.getStandardVariable(STANDARD_VARIABLE_COUNT++);
-                        map.put(arg, newVariable);
-                        p.setArgument(i, newVariable);
-                    }
+                    p.setArgument(i, arg + "" + n);
                 }
             }
         }
@@ -136,6 +128,8 @@ class InferenceSystem {
             Predicate predicate = parsePredicate(sentenceStr);
             sentence.addPredicate(predicate);
         }
+
+        sentence.sortPredicates();
         return sentence;
     }
 
@@ -176,15 +170,16 @@ class InferenceSystem {
         for (Predicate p1: s1Predicates) {
             for(Predicate p2: s2Predicates) {
                 //System.out.println("resolution | p1 = " + p1.toString() + " ;; p2 = " + p2.toString() );
-                if (p1.isExactComplement(p2)) {
-                    // p v ~q, q v r = p v r
-                    Sentence cloneS1 = new Sentence(s1);
-                    Sentence cloneS2 = new Sentence(s2);
+                if (p1.isComplement(p2)) {
+                    // exact complement
+                    // p(x) v ~q(x), q(x) v r(x) = p v r
+                    Sentence cloneS1 = new Sentence(s1, false);
+                    Sentence cloneS2 = new Sentence(s2, false);
                     cloneS1.removePredicate(p1);
                     cloneS2.removePredicate(p2);
                     Sentence result = mergeSentence(cloneS1, cloneS2);
                     return result;
-                } else if (p1.isComplement(p2)) {
+                } else if (p1.isPredicateComplement(p2)) {
                     // unification
                     Unifier unifier = unify(p1, p2);
                     if (unifier.isFailure()) {
@@ -192,8 +187,8 @@ class InferenceSystem {
                     } else if (!unifier.isFailure() && !unifier.isEmpty()) {
                         System.out.println("resolution | Unification is found " + unifier.toString());
 
-                        Sentence cloneS1 = new Sentence(s1);
-                        Sentence cloneS2 = new Sentence(s2);
+                        Sentence cloneS1 = new Sentence(s1, false);
+                        Sentence cloneS2 = new Sentence(s2, false);
                         cloneS1.removePredicate(p1);
                         cloneS2.removePredicate(p2);
 
@@ -228,12 +223,18 @@ class InferenceSystem {
     }
 
     public Unifier unify(Predicate p1, Predicate p2) {
-        if (!p1.getPredicate().equals(p2.getPredicate())) return null;
+        if (!p1.getPredicate().equals(p2.getPredicate())) {
+            return new Unifier(true);
+        };
         Unifier unifier = new Unifier();
+
+        if (unifier.isFailure()) return unifier;
+        if (p1.isEqualPredicate(p2)) return unifier;
 
         for(int i=0; i<p1.getArguments().size(); i++) {
             String arg1 = p1.getArguments().get(i);
             String arg2 = p2.getArguments().get(i);
+
 
             unifyArgument(arg1, arg2, unifier);
         }
@@ -242,6 +243,7 @@ class InferenceSystem {
     }
 
     public void unifyArgument(String arg1, String arg2, Unifier unifier) {
+        //System.out.println("unifyArgument " + arg1 + " " + arg2);
         if (unifier.isFailure()) {
             return;
         } else if (arg1.equals(arg2)) {
@@ -259,12 +261,50 @@ class InferenceSystem {
     }
 
     public void unifyVariable(String variable, String constant, Unifier unifier) {
-        if (unifier.getSubstitution(variable) != null) {
-            unifyArgument(unifier.getSubstitution(variable), constant, unifier);
-        } else if (unifier.getSubstitution(constant) != null) {
-            unifyArgument(variable, unifier.getSubstitution(constant), unifier);
-        } else {
+        String s1 = unifier.getSubstitution(variable);
+        String s2 = unifier.getSubstitution(constant);
+        System.out.println("unifyVariable | " + variable + " " + constant + " " + s1 + " " + s2);
+        if (s1 != null && s2 != null) {
+            // both variables have substitution
+            // TODO
+            System.out.println("unifyVariable | both variables have substitution");
+            return;
+        } else if (s1 == null && s2 == null) {
+            // no substitution for this variable -> add
+            System.out.println("unifyVariable | add substitution");
             unifier.addSubstitution(variable, constant);
+            return;
+        } else if (s1 != null) {
+            if (!Utility.isVariable(s1) && !Utility.isVariable(constant)) {
+                if (s1.equals(constant)) return;
+                // both s1 and constant are constant but not equal
+                System.out.println("unifyVariable | both s1 and constant are constant but not equal");
+                unifier.setFailure(true);
+                return;
+            } else if (!Utility.isVariable(s1) && Utility.isVariable(constant)) {
+                System.out.println("unifyVariable | add Substitution21");
+                // variable = x, s1 = John, constant = y
+                // { x/y, x/John } => { y/John }
+                unifier.addSubstitution(constant, s1);
+                return;
+            } else if (Utility.isVariable(s1) && !Utility.isVariable(constant)) {
+                System.out.println("unifyVariable | add Substitution2");
+                // variable = x, s1 = y, constant = Joe
+                // { x/y, x/John } => { y/John }
+                unifier.addSubstitution(s1, constant);
+                return;
+            } else {
+                System.out.println("both s1 and constant are variables");
+                // both s1 and constant are variables
+                // variable = x, s1 = y, constant = z
+                // { x/y, x/z } => { y/z }
+                unifier.addSubstitution(s1, constant);
+                return;
+            }
+        } else if (s2 != null) {
+            // constant is also variable and its substitution exists
+            // recursive substitution
+            unifyArgument(variable, s2, unifier);
         }
     }
 
@@ -274,10 +314,10 @@ class InferenceSystem {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
                 Predicate p2 = predicates.get(j);
-                if (p1.isExactComplement(p2)) {
-                    return true;
-                }
-                if (p1.isComplement(p2)) {
+//                if (p1.isExactComplement(p2)) {
+//                    return true;
+//                }
+                if (p1.isPredicateComplement(p2)) {
                     // p(x) , ~p(K)
                     Unifier unifier = unify(p1, p2);
                     if (unifier.isEmpty() || unifier.isFailure()) {
@@ -299,6 +339,7 @@ class InferenceSystem {
             Sentence s = newClauses.get(i);
             //System.out.println("isSubset | s " + s.toString() );
             if (binarySearch(KB, s, 0, KB.size()-1)) {
+            //if (KB.contains(s)) {
                 count++;
             }
         }
@@ -330,8 +371,7 @@ class InferenceSystem {
         // e.g. P(x) v P(C) v Q(x) = P(C) v Q(C)
         // System.out.println("factoring | try factoring " + s.toString());
         List<Predicate> predicates = s.getPredicates();
-        Sentence cloneS = new Sentence(s);
-        cloneS.setFailure(true);
+        Sentence cloneS = new Sentence(s, true);
         for(int i=0; i<predicates.size(); i++) {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
@@ -340,24 +380,28 @@ class InferenceSystem {
                     Unifier unifier = unify(p1, p2);
                     if (unifier.isFailure()) {
                         System.out.println("factoring | cannot unify");
+                        cloneS.setFailure(true);
+                        return cloneS;
                     } else if (!unifier.isFailure() && !unifier.isEmpty()) {
                         // P(x) v P(C) converts to P(C)
                         System.out.println("factoring | Unification is found " + unifier.toString());
                         cloneS.removePredicate(p2);
                         Sentence result = substitute(cloneS, unifier);
                         System.out.println("factoring | result: " + result.toString());
-                        cloneS = new Sentence(result);
-                        cloneS.setFailure(false);
-                    } else if (!unifier.isFailure()) {
-                        // exactly same predicate: P(x) v P(x), P(John) v P(John), drop one
-                        cloneS.removePredicate(p2);
-                        System.out.println("factoring | drop " + p2.toString());
-                        cloneS.setFailure(false);
+                        return cloneS;
                     }
+
+//                    else if (!unifier.isFailure()) {
+//                        // exactly same predicate: P(x) v P(x), P(John) v P(John), drop one
+//                        s.removePredicate(p2);
+//                        System.out.println("factoring | drop " + p2.toString());
+//                        cloneS.setFailure(false);
+//                    }
                 }
             }
         }
         //System.out.println("factoring | after factoring " + cloneS.toString());
+        cloneS.setFailure(true);
         return cloneS;
     }
 
@@ -372,6 +416,7 @@ class InferenceSystem {
         List<Sentence> clauses = new ArrayList<>();
         clauses.addAll(KB);
         clauses.add(query);
+        Collections.sort(clauses, sc);
 
         Set<Sentence> newClauses = new HashSet<>();
         Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
@@ -438,7 +483,7 @@ class InferenceSystem {
             }
 
             // if newClauses is subset of KB, return false
-            Collections.sort(clauses, new SentenceComparator());
+            Collections.sort(clauses, sc);
             if (isSubset(clauses, new ArrayList<>(newClauses))) {
                 System.out.println("ask | newClauses is subset of KB, return false");
                 return false;
@@ -446,7 +491,9 @@ class InferenceSystem {
             // update only new clauses to KB
             List<Sentence> updateClauses = difference(clauses, new ArrayList<>(newClauses));
             clauses.addAll(updateClauses);
-         //for(Sentence s: clauses) System.out.println(s.toString());
+
+//        System.out.println("*******");
+//         for(Sentence s: clauses) System.out.println(s.toString());
         }
         //return false;
     }
@@ -519,6 +566,23 @@ class Predicate {
             for(int i=0; i<arguments.size(); i++) {
                 String a = arguments.get(i);
                 String b = p2.getArguments().get(i);
+                if (!a.equals(b)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isPredicateComplement(Predicate p2) {
+        if (predicate.equals(p2.predicate) && isNegative == !p2.isNegative() && arguments.size() == p2.getArguments().size()) {
+            for(int i=0; i<arguments.size(); i++) {
+                String a = arguments.get(i);
+                String b = p2.getArguments().get(i);
+                // P(x), ~P(x)
+                // P(x), ~P(John)
+                // P(John), ~P(John)
                 if (!Utility.isVariable(a) && !Utility.isVariable(b) && !a.equals(b)) {
                     return false;
                 }
@@ -528,28 +592,28 @@ class Predicate {
         return false;
     }
 
-    public boolean isExactComplement(Predicate p2) {
-        if (predicate.equals(p2.predicate) && isNegative == !p2.isNegative() && arguments.size() == p2.getArguments().size()) {
-            for(int i=0; i<arguments.size(); i++) {
-                String a = arguments.get(i);
-                String b = p2.getArguments().get(i);
-                if (!a.equals(b)) return false;
+    public boolean isSimilar(Predicate p2) {
+        if (this.predicate.equals(p2.predicate) && this.isNegative == p2.isNegative) {
+            if (this.arguments.size() != p2.arguments.size()) return false;
+            for(int i=0; i< this.arguments.size(); i++) {
+                if (!Utility.isVariable(this.arguments.get(i)) && !Utility.isVariable(p2.arguments.get(i))) {
+                    return false;
+                }
             }
             return true;
         }
         return false;
+        //return this.predicate.equals(p2.predicate) && this.isNegative == p2.isNegative;
     }
 
-    public boolean isSimilar(Predicate p2) {
-//        if (this.predicate.equals(p2.predicate) && this.isNegative == p2.isNegative) {
-//            if (this.arguments.size() != p2.arguments.size()) return false;
-//            for(int i=0; i< this.arguments.size(); i++) {
-//                if (!Utility.isVariable(this.arguments.get(i)) && !Utility.isVariable(p2.arguments.get(i))) {
-//                    return false;
-//                }
-//            }
-//        }
-        return this.predicate.equals(p2.predicate) && this.isNegative == p2.isNegative;
+    public boolean isEqualPredicate(Predicate p2) {
+        if (predicate.equals(p2.getPredicate())) {
+            for(int i=0; i<arguments.size(); i++) {
+                if (!arguments.get(i).equals(p2.getArguments().get(i))) return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     public void substitute(String constant, int index) {
@@ -558,23 +622,24 @@ class Predicate {
     }
 
     public int compareTo(Predicate p2) {
-        return this.toString().compareTo(p2.toString());
+        if (predicate.equals(p2.getPredicate())) {
+            return this.toString().compareTo(p2.toString());
+        } else {
+            return predicate.compareTo(p2.getPredicate());
+        }
     }
 }
 
 class PredicateComparator implements Comparator<Predicate> {
     @Override
     public int compare(Predicate o1, Predicate o2) {
-        if (o1.getPredicate().equals(o2.getPredicate())) {
-            return o1.toString().compareTo(o2.toString());
-        } else {
-            return o1.getPredicate().compareTo(o2.getPredicate());
-        }
+        return o1.compareTo(o2);
     }
 }
 
 class Sentence {
     private static long runningID = 1;
+    private final PredicateComparator pc = new PredicateComparator();
     private long id;
     private List<Predicate> predicates;
     private boolean isFailure = false;
@@ -589,8 +654,8 @@ class Sentence {
         this.predicates = predicates;
     }
 
-    public Sentence(Sentence s) {
-        this.id = s.id;
+    public Sentence(Sentence s, boolean isNew) {
+        this.id = isNew ? runningID++ : s.id;
         this.isFailure = s.isFailure;
         this.predicates = new ArrayList<>();
         Iterator<Predicate> it = s.getPredicates().iterator();
@@ -637,6 +702,10 @@ class Sentence {
         return predicates;
     }
 
+    public void sortPredicates() {
+        Collections.sort(predicates, pc);
+    }
+
     public boolean isEmpty() {
         return predicates.size() == 0;
     }
@@ -659,7 +728,7 @@ class SentenceComparator implements Comparator<Sentence> {
 
     @Override
     public int compare(Sentence o1, Sentence o2) {
-        return (int) (o1.getId() - o2.getId());
+        return o1.compareTo(o2);
     }
 }
 
@@ -669,6 +738,10 @@ class Unifier {
 
     public Unifier() {
         substitution = new HashMap<>();
+    }
+
+    public Unifier(boolean isFailure) {
+        this.isFailure = isFailure;
     }
 
     public void addSubstitution(String key, String value) {
@@ -746,50 +819,9 @@ class InferenceInput {
     }
 }
 
-class ResolutionResult {
-    private boolean isContradiction = false;
-    private List<Sentence> inferredSentence;
-
-    public ResolutionResult() {
-        this.inferredSentence = new ArrayList<>();
-    }
-
-    public boolean isContradiction() {
-        return isContradiction;
-    }
-
-    public void setContradiction(boolean contradiction) {
-        isContradiction = contradiction;
-    }
-
-    public List<Sentence> getInferredSentence() {
-        return inferredSentence;
-    }
-
-    public void setInferredSentence(List<Sentence> inferredSentence) {
-        this.inferredSentence = inferredSentence;
-    }
-}
-
 class Utility {
     public static boolean isVariable(String argument) {
         return Character.isLowerCase(argument.charAt(0));
-    }
-
-    public static String getStandardVariable(int count) {
-        if (count < 26) {
-            return Character.toString((char)(count + 'a'));
-        }
-        int a = 'a';
-        StringBuilder sb = new StringBuilder();
-        while (count >= 26) {
-            int mod = count % 26;
-            sb.append((char) (mod + a));
-            count = count / 26;
-        }
-
-        sb.append((char) ((count-1) + a));
-        return sb.toString();
     }
 }
 
