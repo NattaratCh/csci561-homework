@@ -7,14 +7,15 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases1/input18.txt");
-        inferenceSystem.startInference();
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
+        List<Boolean> result = inferenceSystem.startInference();
+        inferenceSystem.writeOutput(result, "./src/output.txt");
     }
 }
 
 class InferenceSystem {
     private InferenceInput inferenceInput;
-    private final int LIMIT_KB_SIZE = 1000;
+    private final int LIMIT_KB_SIZE = 20000;
     private final double LIMIT_TIME_IN_SECONDS = 60.0;
     private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
@@ -37,7 +38,10 @@ class InferenceSystem {
                 Sentence s = parseSentence(query);
                 if (s.getPredicates().size() == 1) {
                     // Add negation of query to proof by contradiction
-                    s.getPredicates().get(0).negate();
+                    Predicate p = s.getPredicates().get(0);
+                    s.removePredicate(p);
+                    p.negate();
+                    s.addPredicate(p);
                 }
                 inferenceInput.addQuery(s);
             }
@@ -66,7 +70,7 @@ class InferenceSystem {
         }
     }
 
-    public void startInference() {
+    public List<Boolean> startInference() {
         List<Boolean> result = new ArrayList<>();
         for(Sentence q: inferenceInput.getQueries()) {
             startTime = System.nanoTime();
@@ -74,13 +78,12 @@ class InferenceSystem {
             System.out.println(valid);
             result.add(valid);
         }
-        writeOutput(result);
+        return result;
     }
 
-    public void writeOutput(List<Boolean> result) {
+    public void writeOutput(List<Boolean> result, String filename) {
         try {
-            // TODO change output path
-            FileWriter writer = new FileWriter("./src/output.txt");
+            FileWriter writer = new FileWriter(filename);
             for (Boolean v: result) {
                 writer.write(String.valueOf(v).toUpperCase());
                 writer.write(System.lineSeparator());
@@ -163,11 +166,38 @@ class InferenceSystem {
         return sentence;
     }
 
+    private void resolutionLog(Sentence s1, Sentence s2) {
+        File file = new File("./src/resolution.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
+
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            br.write(s1.toString());
+            br.write(System.lineSeparator());
+            br.write(s2.toString());
+            br.write(System.lineSeparator());
+            br.write("===========================");
+            br.write(System.lineSeparator());
+
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public Sentence resolution(Sentence s1, Sentence s2) {
         List<Predicate> s1Predicates = s1.getPredicates();
-        List<Predicate> s2Predicates = s2.getPredicates();
+        List<Predicate> s2Positives = s2.getPositivePredicates();
+        List<Predicate> s2Negatives = s2.getNegativePredicates();
+        List<Predicate> s2Predicates;
 
         for (Predicate p1: s1Predicates) {
+            s2Predicates = p1.isNegative() ? s2Positives : s2Negatives;
             for(Predicate p2: s2Predicates) {
                 //System.out.println("resolution | p1 = " + p1.toString() + " ;; p2 = " + p2.toString() );
                 if (p1.isComplement(p2)) {
@@ -191,10 +221,13 @@ class InferenceSystem {
                         Sentence cloneS2 = new Sentence(s2, false);
                         cloneS1.removePredicate(p1);
                         cloneS2.removePredicate(p2);
+//                        System.out.println("resolution | cloneS1 " + cloneS1.toString());
+//                        System.out.println("resolution | cloneS2 " + cloneS2.toString());
 
                         Sentence ss1 = substitute(cloneS1, unifier);
                         Sentence ss2 = substitute(cloneS2, unifier);
                         Sentence result = mergeSentence(ss1, ss2);
+//                        System.out.println("resolution | result " + result.toString());
                         return result;
                     }
                 }
@@ -203,7 +236,7 @@ class InferenceSystem {
 
         Sentence s = new Sentence();
         s.setFailure(true);
-        System.out.println("resolution | failure");
+        //System.out.println("resolution | failure");
         return s;
     }
 
@@ -309,11 +342,8 @@ class InferenceSystem {
     }
 
     public boolean isTautology(Sentence s) {
-        List<Predicate> predicates = s.getPredicates();
-        for(int i=0; i<predicates.size(); i++) {
-            Predicate p1 = predicates.get(i);
-            for(int j=i+1; j<predicates.size(); j++) {
-                Predicate p2 = predicates.get(j);
+        for(Predicate p1: s.getPositivePredicates()) {
+            for(Predicate p2: s.getNegativePredicates()) {
                 if (p1.isComplement(p2)) {
                     return true;
                 }
@@ -415,8 +445,8 @@ class InferenceSystem {
     private double getUsedTime() {
         long currentTime = System.nanoTime();
         long usedTime = currentTime - startTime;
-        //System.out.println("getUsedTime | " + ((int) usedTime / 1000000000.0));
-        return (int) usedTime / 1000000000.0;
+        //System.out.println("getUsedTime | " + (usedTime / 1000000000.0));
+        return usedTime / 1000000000.0;
     }
 
     public boolean ask(List<Sentence> KB, Sentence query) {
@@ -455,25 +485,30 @@ class InferenceSystem {
                         return false;
                     }
                     Sentence b = clauses.get(j);
-                    System.out.println("#################");
-                    System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
-                    System.out.println("ask | id = " + b.getId() +" b = " + b.toString());
+
                     if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) {
-                        System.out.println("ask | Visited skip");
+                        //System.out.println("ask | Visited skip");
                         continue;
                     };
 
                     Sentence result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
                     visited.add(new Pair<>(b, a));
-                    System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
                     if (!result.isFailure() && result.isEmpty()) {
                         // Contradiction
+                        System.out.println("Contradiction");
+                        System.out.println(a.toString());
+                        System.out.println(b.toString());
                         return true;
                     }
 
                     if (result.isFailure()) continue;
+
+                    System.out.println("#################");
+                    System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
+                    System.out.println("ask | id = " + b.getId() +" b = " + b.toString());
+                    System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
                     if (isTautology(result)) {
                         System.out.println("ask | resolution is tautology");
@@ -492,11 +527,11 @@ class InferenceSystem {
                 }
             }
 
-            System.out.println("*** new ****");
-            //Collections.sort(clauses, sc);
-            for(Sentence s: newClauses) {
-                System.out.println(s.getId() + " " +s.toString());
-            }
+//            System.out.println("*** new ****");
+//            //Collections.sort(clauses, sc);
+//            for(Sentence s: newClauses) {
+//                System.out.println(s.getId() + " " +s.toString());
+//            }
             // if newClauses is subset of KB, return false
             Collections.sort(clauses, sc);
             if (isSubset(clauses, new ArrayList<>(newClauses))) {
@@ -504,19 +539,43 @@ class InferenceSystem {
                 return false;
             }
             // update only new clauses to KB
-//            System.out.println("*******");
-//            for(Sentence s: clauses) System.out.println(s.toString());
             List<Sentence> updateClauses = difference(clauses, new ArrayList<>(newClauses));
             System.out.println("ask | updateClauses size = " + updateClauses.size());
-            if (!updateClauses.isEmpty()) clauses.addAll(updateClauses);
+            if (!updateClauses.isEmpty()) {
+                clauses.addAll(updateClauses);
+                Collections.sort(clauses, sc);
+            }
 
-         System.out.println("*******");
-         Collections.sort(clauses, sc);
-         for(Sentence s: clauses) {
-             System.out.println(s.getId() + " " +s.toString());
-         }
+//         System.out.println("*******");
+//         Collections.sort(clauses, sc);
+//         for(Sentence s: clauses) {
+//             System.out.println(s.getId() + " " +s.toString());
+//         }
+//            Collections.sort(clauses, sc);
+            //writeKB(clauses);
         }
-        //return false;
+    }
+
+    private void writeKB(List<Sentence> KB) {
+        System.out.println("writeKB");
+        File file = new File("./src/KB.txt");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+        }
+
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(file, false);
+            BufferedWriter br = new BufferedWriter(fr);
+            for(Sentence s: KB) {
+                br.write(s.getId() + " " + s.toString());
+                br.write(System.lineSeparator());
+            }
+            br.close();
+            fr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
 
@@ -683,26 +742,42 @@ class Sentence {
     private static long runningID = 1;
     private final PredicateComparator pc = new PredicateComparator();
     private long id;
-    private List<Predicate> predicates;
+    private List<Predicate> predicates = new ArrayList<>();
+    private List<Predicate> positivePredicates = new ArrayList<>();
+    private List<Predicate> negativePredicates = new ArrayList<>();
     private boolean isFailure = false;
 
     public Sentence() {
         id = runningID++;
         predicates = new ArrayList<>();
+        positivePredicates = new ArrayList<>();
+        negativePredicates = new ArrayList<>();
     }
 
     public Sentence(List<Predicate> predicates) {
         id = runningID++;
-        this.predicates = predicates;
+        this.predicates.addAll(predicates);
+        for(Predicate p: predicates) {
+            if (p.isNegative()) {
+                negativePredicates.add(p);
+            } else {
+                positivePredicates.add(p);
+            }
+        }
     }
 
     public Sentence(Sentence s, boolean isNew) {
         this.id = isNew ? runningID++ : s.id;
         this.isFailure = s.isFailure;
-        this.predicates = new ArrayList<>();
         Iterator<Predicate> it = s.getPredicates().iterator();
         while (it.hasNext()) {
-            predicates.add(new Predicate(it.next()));
+            Predicate p = new Predicate(it.next());
+            predicates.add(p);
+            if (p.isNegative()) {
+                negativePredicates.add(p);
+            } else {
+                positivePredicates.add(p);
+            }
         }
     }
 
@@ -731,11 +806,16 @@ class Sentence {
 
     @Override
     public int hashCode() {
-        return toString().hashCode();
+        return this.toString().hashCode();
     }
 
     public void addPredicate(Predicate predicate) {
         predicates.add(predicate);
+        if (predicate.isNegative()) {
+            negativePredicates.add(predicate);
+        } else {
+            positivePredicates.add(predicate);
+        }
     }
 
     public boolean isFailure() {
@@ -763,16 +843,49 @@ class Sentence {
     }
 
     public void removePredicate(Predicate p) {
-        for(Predicate predicate: predicates) {
+        for(int i=0; i<predicates.size(); i++) {
+            Predicate predicate = predicates.get(i);
             if (p.toString().equals(predicate.toString())) {
-                this.predicates.remove(predicate);
-                return;
+                this.predicates.remove(i);
             }
         }
+
+        if (p.isNegative()) {
+            for(int i=0; i<negativePredicates.size(); i++) {
+                Predicate predicate = negativePredicates.get(i);
+                if (p.toString().equals(predicate.toString())) {
+                    negativePredicates.remove(i);
+                }
+            }
+        } else {
+            for(int i=0; i<positivePredicates.size(); i++) {
+                Predicate predicate = positivePredicates.get(i);
+                if (p.toString().equals(predicate.toString())) {
+                    positivePredicates.remove(i);
+                }
+            }
+        }
+
     }
 
     public int compareTo(Sentence s2) {
         return this.toString().compareTo(s2.toString());
+    }
+
+    public List<Predicate> getPositivePredicates() {
+        return positivePredicates;
+    }
+
+    public void setPositivePredicates(List<Predicate> positivePredicates) {
+        this.positivePredicates = positivePredicates;
+    }
+
+    public List<Predicate> getNegativePredicates() {
+        return negativePredicates;
+    }
+
+    public void setNegativePredicates(List<Predicate> negativePredicates) {
+        this.negativePredicates = negativePredicates;
     }
 }
 
