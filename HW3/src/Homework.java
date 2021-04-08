@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input21.txt");
         List<Boolean> result = inferenceSystem.startInference();
         inferenceSystem.writeOutput(result, "./src/output.txt");
     }
@@ -191,12 +191,14 @@ class InferenceSystem {
         }
     }
 
-    public Sentence resolution(Sentence s1, Sentence s2) {
+    public ResolutionResult resolution(Sentence s1, Sentence s2) {
         List<Predicate> s1Predicates = s1.getPredicates();
         List<Predicate> s2Positives = s2.getPositivePredicates();
         List<Predicate> s2Negatives = s2.getNegativePredicates();
         List<Predicate> s2Predicates;
-        resolutionLog(s1, s2);
+        //resolutionLog(s1, s2);
+
+        ResolutionResult resolutionResult = new ResolutionResult();
 
         for (Predicate p1: s1Predicates) {
             s2Predicates = p1.isNegative() ? s2Positives : s2Negatives;
@@ -210,7 +212,13 @@ class InferenceSystem {
                     cloneS1.removePredicate(p1);
                     cloneS2.removePredicate(p2);
                     Sentence result = mergeSentence(cloneS1, cloneS2);
-                    return result;
+                    if (!result.isFailure() && result.isEmpty()) {
+                        resolutionResult.setContradiction(true);
+                        return resolutionResult;
+                    }
+                    if (!result.isEmpty()) {
+                        resolutionResult.addInferredSentence(result);
+                    }
                 } else if (p1.isPredicateComplement(p2)) {
                     // unification
                     Unifier unifier = unify(p1, p2);
@@ -230,16 +238,23 @@ class InferenceSystem {
                         Sentence ss2 = substitute(cloneS2, unifier);
                         Sentence result = mergeSentence(ss1, ss2);
 //                        System.out.println("resolution | result " + result.toString());
-                        return result;
+                        if (!result.isFailure() && result.isEmpty()) {
+                            resolutionResult.setContradiction(true);
+                            return resolutionResult;
+                        }
+
+                        if (!result.isEmpty()) {
+                            resolutionResult.addInferredSentence(result);
+                        }
                     }
                 }
             }
         }
 
-        Sentence s = new Sentence();
-        s.setFailure(true);
-        //System.out.println("resolution | failure");
-        return s;
+//        Sentence s = new Sentence();
+//        s.setFailure(true);
+//        //System.out.println("resolution | failure");
+        return resolutionResult;
     }
 
     public Sentence substitute(Sentence s, Unifier unifier) {
@@ -298,38 +313,38 @@ class InferenceSystem {
     public void unifyVariable(String variable, String constant, Unifier unifier) {
         String s1 = unifier.getSubstitution(variable);
         String s2 = unifier.getSubstitution(constant);
-        System.out.println("unifyVariable | " + variable + " " + constant + " " + s1 + " " + s2);
+        //System.out.println("unifyVariable | " + variable + " " + constant + " " + s1 + " " + s2);
         if (s1 != null && s2 != null) {
             // both variables have substitution
             // TODO
-            System.out.println("unifyVariable | both variables have substitution");
+            //System.out.println("unifyVariable | both variables have substitution");
             return;
         } else if (s1 == null && s2 == null) {
             // no substitution for this variable -> add
-            System.out.println("unifyVariable | add substitution");
+            //System.out.println("unifyVariable | add substitution");
             unifier.addSubstitution(variable, constant);
             return;
         } else if (s1 != null) {
             if (!Utility.isVariable(s1) && !Utility.isVariable(constant)) {
                 if (s1.equals(constant)) return;
                 // both s1 and constant are constant but not equal
-                System.out.println("unifyVariable | both s1 and constant are constant but not equal");
+                //System.out.println("unifyVariable | both s1 and constant are constant but not equal");
                 unifier.setFailure(true);
                 return;
             } else if (!Utility.isVariable(s1) && Utility.isVariable(constant)) {
-                System.out.println("unifyVariable | add Substitution21");
+                //System.out.println("unifyVariable | add Substitution21");
                 // variable = x, s1 = John, constant = y
                 // { x/y, x/John } => { y/John }
                 unifier.addSubstitution(constant, s1);
                 return;
             } else if (Utility.isVariable(s1) && !Utility.isVariable(constant)) {
-                System.out.println("unifyVariable | add Substitution2");
+                //System.out.println("unifyVariable | add Substitution2");
                 // variable = x, s1 = y, constant = Joe
                 // { x/y, x/John } => { y/John }
                 unifier.addSubstitution(s1, constant);
                 return;
             } else {
-                System.out.println("both s1 and constant are variables");
+                //System.out.println("both s1 and constant are variables");
                 // both s1 and constant are variables
                 // variable = x, s1 = y, constant = z
                 // { x/y, x/z } => { y/z }
@@ -352,7 +367,7 @@ class InferenceSystem {
                 if (p1.isPredicateComplement(p2)) {
                     // p(x) , ~p(K)
                     Unifier unifier = unify(p1, p2);
-                    System.out.println("isTautology | " + p1 + " ## " + p2 + " unifier = " + unifier.isFailure() + ", " + unifier.toString());
+                    //System.out.println("isTautology | " + p1 + " ## " + p2 + " unifier = " + unifier.isFailure() + ", " + unifier.toString());
                     if (unifier.isEmpty() || unifier.isFailure()) {
                         return false;
                     } else {
@@ -545,11 +560,11 @@ class InferenceSystem {
                     }
                     ;
 
-                    Sentence result = resolution(a, b);
+                    ResolutionResult result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
                     visited.add(new Pair<>(b, a));
 
-                    if (!result.isFailure() && result.isEmpty()) {
+                    if (result.isContradiction()) {
                         // Contradiction
                         System.out.println("ask | Contradiction round: " + round);
                         System.out.println("ask | KB size = " + KB.size());
@@ -559,25 +574,27 @@ class InferenceSystem {
                         return true;
                     }
 
-                    if (result.isFailure()) continue;
+                    // if (result.isFailure()) continue;
 
                     System.out.println("#################");
                     System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
                     System.out.println("ask | id = " + b.getId() + " b = " + b.toString());
-                    System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
+//                    System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
-                    if (isTautology(result)) {
-                        System.out.println("ask | resolution is tautology");
-                        continue;
-                    }
+                    for (Sentence s: result.getInferredSentences()) {
+                        if (isTautology(s)) {
+                            System.out.println("ask | resolution is tautology");
+                            continue;
+                        }
 
-                    if (!newClauses.contains(result)) {
-                        newClauses.add(result);
-                        System.out.println("ask | add " + result.toString() + " to newClauses");
-                        Sentence factorSentence = factoring(result);
-                        if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
-                            newClauses.add(factorSentence);
-                            System.out.println("ask | [factoring] add " + factorSentence.toString() + " to newClauses");
+                        if (!newClauses.contains(s)) {
+                            newClauses.add(s);
+                            System.out.println("ask | add " + s.toString() + " to newClauses");
+                            Sentence factorSentence = factoring(s);
+                            if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
+                                newClauses.add(factorSentence);
+                                System.out.println("ask | [factoring] add " + factorSentence.toString() + " to newClauses");
+                            }
                         }
                     }
                 }
@@ -1005,6 +1022,31 @@ class Unifier {
         sb.append("}");
         if (isFailure()) sb.append("[FAILURE]");
         return sb.toString();
+    }
+}
+
+class ResolutionResult {
+    private boolean isContradiction = false;
+    private Set<Sentence> inferredSentences;
+
+    public ResolutionResult() {
+        inferredSentences = new HashSet<>();
+    }
+
+    public void addInferredSentence(Sentence s) {
+        inferredSentences.add(s);
+    }
+
+    public boolean isContradiction() {
+        return isContradiction;
+    }
+
+    public void setContradiction(boolean isContradiction) {
+        this.isContradiction = isContradiction;
+    }
+
+    public Set<Sentence> getInferredSentences() {
+        return inferredSentences;
     }
 }
 
