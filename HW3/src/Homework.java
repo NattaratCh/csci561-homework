@@ -15,10 +15,11 @@ public class Homework {
 
 class InferenceSystem {
     private InferenceInput inferenceInput;
-    private final int LIMIT_KB_SIZE = 20000;
-    private final double LIMIT_TIME_IN_SECONDS = 60.0;
+    private int LIMIT_KB_SIZE = 8000;
+    private final double LIMIT_TIME_IN_SECONDS = 200.0;
     private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
+
     public InferenceSystem(String filename) {
         inferenceInput = readInput(filename);
         inferenceInput.print();
@@ -73,8 +74,8 @@ class InferenceSystem {
     public List<Boolean> startInference() {
         List<Boolean> result = new ArrayList<>();
         for(Sentence q: inferenceInput.getQueries()) {
-            startTime = System.nanoTime();
-            boolean valid = ask(inferenceInput.getKB(), q);
+            List<Sentence> KB = new ArrayList<>(inferenceInput.getKB());
+            boolean valid = ask(KB, q);
             System.out.println(valid);
             result.add(valid);
         }
@@ -195,6 +196,7 @@ class InferenceSystem {
         List<Predicate> s2Positives = s2.getPositivePredicates();
         List<Predicate> s2Negatives = s2.getNegativePredicates();
         List<Predicate> s2Predicates;
+        resolutionLog(s1, s2);
 
         for (Predicate p1: s1Predicates) {
             s2Predicates = p1.isNegative() ? s2Positives : s2Negatives;
@@ -449,47 +451,99 @@ class InferenceSystem {
         return usedTime / 1000000000.0;
     }
 
-    public boolean ask(List<Sentence> KB, Sentence query) {
-        List<Sentence> clauses = new ArrayList<>();
-        clauses.addAll(KB);
-        clauses.add(query);
-        Collections.sort(clauses, sc);
+    private void addToKB(List<Sentence> KB, Sentence s, Map<String, TableBasedIndex> kbMap) {
+        KB.add(s);
+        addNewSentenceToTableBasedIndex(s, kbMap);
+    }
 
-        Set<Sentence> newClauses = new HashSet<>();
+    private void processTableBasedIndexing(List<Sentence> KB, Map<String, TableBasedIndex> kbMap) {
+        for(Sentence s: KB) {
+            addNewSentenceToTableBasedIndex(s, kbMap);
+        }
+    }
+
+    private void addNewSentenceToTableBasedIndex(Sentence s, Map<String, TableBasedIndex> kbMap) {
+        for (Predicate p: s.getPredicates()) {
+            TableBasedIndex table = kbMap.getOrDefault(p.getPredicate(), new TableBasedIndex());
+            if (p.isNegative()) {
+                table.addNegatives(s);
+            } else {
+                table.addPositives(s);
+            }
+            kbMap.put(p.getPredicate(), table);
+        }
+    }
+
+    public List<Sentence> getResolvingClauses(Sentence s, Map<String, TableBasedIndex> kbMap) {
+        List<Sentence> resolvingClauses = new ArrayList<>();
+        for (Predicate p : s.getPredicates()) {
+            TableBasedIndex tableBasedIndex = kbMap.getOrDefault(p.getPredicate(), null);
+            if (tableBasedIndex == null) {
+                continue;
+            }
+            List<Sentence> clauses = p.isNegative() ? tableBasedIndex.getPositives() : tableBasedIndex.getNegatives();
+            resolvingClauses.addAll(clauses);
+        }
+        return resolvingClauses;
+    }
+
+    private void prepareKB(List<Sentence> KB, Sentence query, Map<String, TableBasedIndex> kbMap) {
+        KB.add(query);
+        processTableBasedIndexing(KB, kbMap);
+        //Collections.sort(KB, sc);
+    }
+
+    public boolean ask(List<Sentence> KB, Sentence query) {
+//        List<Sentence> clauses = new ArrayList<>();
+//        clauses.addAll(KB);
+//        clauses.add(query);
+//        Collections.sort(clauses, sc);
+//        processTableBasedIndexing(clauses);
+        Map<String, TableBasedIndex> kbMap = new HashMap<>();
+        prepareKB(KB, query, kbMap);
+
+        Set<Sentence> newClauses;
         Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
 
+        startTime = System.nanoTime();
         int round = 0;
 
         while (true) {
+            newClauses = new HashSet<>();
             round += 1;
             System.out.println("--------------");
             System.out.println("ROUND: " + round);
-           // for(Sentence s: clauses) System.out.println(s.toString());
             System.out.println("--------------");
 
-            if (clauses.size() > LIMIT_KB_SIZE) {
-                System.out.println("ask | KB size exceeds the limit, return false");
-                return false;
-            }
+//            if (KB.size() > LIMIT_KB_SIZE) {
+//                System.out.println("ask | KB size exceeds the limit, return false");
+//                return false;
+//            }
 
-            if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
-                System.out.println("ask | Time limit exceed, return false");
-                return false;
-            }
+//            if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                System.out.println("ask | Time limit exceed, return false");
+//                return false;
+//            }
 
-            for (int i=0; i<clauses.size(); i++) {
-                Sentence a = clauses.get(i);
-                for (int j=i+1; j<clauses.size(); j++) {
-                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
-                        System.out.println("ask | Time limit exceed, return false");
-                        return false;
+            for (int i=0; i<KB.size(); i++) {
+                Sentence a = KB.get(i);
+
+                List<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
+                for (Sentence b : resolvingClauses) {
+//                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                        System.out.println("ask | Time limit exceed, return false");
+//                        return false;
+//                    }
+
+                    if (a.getId() == b.getId()) {
+                        // Avoid resolution with itself
+                        continue;
                     }
-                    Sentence b = clauses.get(j);
-
                     if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) {
                         //System.out.println("ask | Visited skip");
                         continue;
-                    };
+                    }
+                    ;
 
                     Sentence result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
@@ -497,9 +551,11 @@ class InferenceSystem {
 
                     if (!result.isFailure() && result.isEmpty()) {
                         // Contradiction
-                        System.out.println("Contradiction");
-                        System.out.println(a.toString());
-                        System.out.println(b.toString());
+                        System.out.println("ask | Contradiction round: " + round);
+                        System.out.println("ask | KB size = " + KB.size());
+                        System.out.println("ask | time = " + getUsedTime());
+                        System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
+                        System.out.println("ask | id = " + b.getId() + " b = " + b.toString());
                         return true;
                     }
 
@@ -507,7 +563,7 @@ class InferenceSystem {
 
                     System.out.println("#################");
                     System.out.println("ask | id = " + a.getId() + " a = " + a.toString());
-                    System.out.println("ask | id = " + b.getId() +" b = " + b.toString());
+                    System.out.println("ask | id = " + b.getId() + " b = " + b.toString());
                     System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
                     if (isTautology(result)) {
@@ -527,36 +583,38 @@ class InferenceSystem {
                 }
             }
 
-//            System.out.println("*** new ****");
-//            //Collections.sort(clauses, sc);
-//            for(Sentence s: newClauses) {
-//                System.out.println(s.getId() + " " +s.toString());
-//            }
             // if newClauses is subset of KB, return false
-            Collections.sort(clauses, sc);
-            if (isSubset(clauses, new ArrayList<>(newClauses))) {
+            //if (isSubset(KB, new ArrayList<>(newClauses))) {
+            if (KB.containsAll(newClauses)) {
                 System.out.println("ask | newClauses is subset of KB, return false");
                 return false;
             }
             // update only new clauses to KB
-            List<Sentence> updateClauses = difference(clauses, new ArrayList<>(newClauses));
+            List<Sentence> updateClauses = difference(KB, new ArrayList<>(newClauses));
             System.out.println("ask | updateClauses size = " + updateClauses.size());
+
+            // reset kbMap to contains only newly inferred clauses
+            kbMap = new HashMap<>();
             if (!updateClauses.isEmpty()) {
-                clauses.addAll(updateClauses);
-                Collections.sort(clauses, sc);
+                for(Sentence s: updateClauses) {
+                    addToKB(KB, s, kbMap);
+                }
+//                KB.addAll(updateClauses);
+//                processTableBasedIndexing(updateClauses);
+                //Collections.sort(KB, sc);
             }
 
 //         System.out.println("*******");
-//         Collections.sort(clauses, sc);
-//         for(Sentence s: clauses) {
+//         for(Sentence s: KB) {
 //             System.out.println(s.getId() + " " +s.toString());
 //         }
-//            Collections.sort(clauses, sc);
-            //writeKB(clauses);
+////            Collections.sort(clauses, sc);
+            writeKB(updateClauses, round);
         }
+        //return false;
     }
 
-    private void writeKB(List<Sentence> KB) {
+    private void writeKB(List<Sentence> KB, int round) {
         System.out.println("writeKB");
         File file = new File("./src/KB.txt");
         if (!file.exists()) {
@@ -565,8 +623,12 @@ class InferenceSystem {
 
         FileWriter fr = null;
         try {
-            fr = new FileWriter(file, false);
+            fr = new FileWriter(file, true);
             BufferedWriter br = new BufferedWriter(fr);
+            br.write("################## ROUND: " +round + "#####################");
+            br.write(System.lineSeparator());
+            br.write("new clauses size: " + KB.size());
+            br.write(System.lineSeparator());
             for(Sentence s: KB) {
                 br.write(s.getId() + " " + s.toString());
                 br.write(System.lineSeparator());
@@ -981,6 +1043,32 @@ class InferenceInput {
         for(Sentence s: KB) {
             System.out.println(s.getId() + " " + s.toString());
         }
+    }
+}
+
+class TableBasedIndex {
+    private List<Sentence> positives;
+    private List<Sentence> negatives;
+
+    public TableBasedIndex() {
+        positives = new ArrayList<>();
+        negatives = new ArrayList<>();
+    }
+
+    public void addPositives(Sentence s) {
+        positives.add(s);
+    }
+
+    public void addNegatives(Sentence s) {
+        negatives.add(s);
+    }
+
+    public List<Sentence> getPositives() {
+        return positives;
+    }
+
+    public List<Sentence> getNegatives() {
+        return negatives;
     }
 }
 
