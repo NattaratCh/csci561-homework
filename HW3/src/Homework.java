@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases2/input_23.txt");
         List<Boolean> result = inferenceSystem.startInference();
         inferenceSystem.writeOutput(result, "./src/output.txt");
     }
@@ -196,7 +196,7 @@ class InferenceSystem {
         List<Predicate> s2Positives = s2.getPositivePredicates();
         List<Predicate> s2Negatives = s2.getNegativePredicates();
         List<Predicate> s2Predicates;
-        resolutionLog(s1, s2);
+        //resolutionLog(s1, s2);
 
         for (Predicate p1: s1Predicates) {
             s2Predicates = p1.isNegative() ? s2Positives : s2Negatives;
@@ -474,8 +474,8 @@ class InferenceSystem {
         }
     }
 
-    public List<Sentence> getResolvingClauses(Sentence s, Map<String, TableBasedIndex> kbMap) {
-        List<Sentence> resolvingClauses = new ArrayList<>();
+    public Set<Sentence> getResolvingClauses(Sentence s, Map<String, TableBasedIndex> kbMap) {
+        Set<Sentence> resolvingClauses = new HashSet<>();
         for (Predicate p : s.getPredicates()) {
             TableBasedIndex tableBasedIndex = kbMap.getOrDefault(p.getPredicate(), null);
             if (tableBasedIndex == null) {
@@ -528,7 +528,7 @@ class InferenceSystem {
             for (int i=0; i<KB.size(); i++) {
                 Sentence a = KB.get(i);
 
-                List<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
+                Set<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
                 for (Sentence b : resolvingClauses) {
 //                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
 //                        System.out.println("ask | Time limit exceed, return false");
