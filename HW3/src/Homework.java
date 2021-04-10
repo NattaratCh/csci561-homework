@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input12.txt");
         List<Boolean> result = inferenceSystem.startInference();
         inferenceSystem.writeOutput(result, "./src/output.txt");
     }
@@ -164,7 +164,7 @@ class InferenceSystem {
         List<Predicate> predicateList = new ArrayList<>(predicates);
 
         Sentence sentence = new Sentence(predicateList);
-        removeTautology(sentence);
+        //removeTautology(sentence);
         sentence.sortPredicates();
         return sentence;
     }
@@ -583,16 +583,10 @@ class InferenceSystem {
                     System.out.println("ask | id = " + b.getId() + " b = " + b.toString());
                     System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
-//                    if (isTautology(result)) {
-//                        if (result.getPredicates().size() == 2) {
-//                            System.out.println("ask | Contradiction round: " + round);
-//                            System.out.println("ask | KB size = " + KB.size());
-//                            System.out.println("ask | time = " + getUsedTime());
-//                            return true;
-//                        }
-//                        System.out.println("ask | resolution is tautology");
-//                        continue;
-//                    }
+                    if (isTautology(result)) {
+                        System.out.println("ask | resolution is tautology");
+                        continue;
+                    }
 
                     if (!newClauses.contains(result)) {
                         newClauses.add(result);
