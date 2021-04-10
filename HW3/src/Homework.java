@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases2/input_23.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
         List<Boolean> result = inferenceSystem.startInference();
         inferenceSystem.writeOutput(result, "./src/output.txt");
     }
@@ -73,6 +73,7 @@ class InferenceSystem {
 
     public List<Boolean> startInference() {
         List<Boolean> result = new ArrayList<>();
+        LIMIT_KB_SIZE = inferenceInput.getKB().size() * 1000;
         for(Sentence q: inferenceInput.getQueries()) {
             List<Sentence> KB = new ArrayList<>(inferenceInput.getKB());
             boolean valid = ask(KB, q);
@@ -163,8 +164,23 @@ class InferenceSystem {
         List<Predicate> predicateList = new ArrayList<>(predicates);
 
         Sentence sentence = new Sentence(predicateList);
+        removeTautology(sentence);
         sentence.sortPredicates();
         return sentence;
+    }
+
+    public void removeTautology(Sentence s) {
+        List<Predicate> predicates = s.getPredicates();
+        for(int i=0; i<predicates.size(); i++) {
+            Predicate p1 = predicates.get(i);
+            for(int j = i+1; j<predicates.size(); j++) {
+                Predicate p2 = predicates.get(j);
+                if (p1.isComplement(p2)) {
+                    s.removePredicate(p1);
+                    s.removePredicate(p2);
+                }
+            }
+        }
     }
 
     private void resolutionLog(Sentence s1, Sentence s2) {
@@ -474,8 +490,8 @@ class InferenceSystem {
         }
     }
 
-    public Set<Sentence> getResolvingClauses(Sentence s, Map<String, TableBasedIndex> kbMap) {
-        Set<Sentence> resolvingClauses = new HashSet<>();
+    public List<Sentence> getResolvingClauses(Sentence s, Map<String, TableBasedIndex> kbMap) {
+        List<Sentence> resolvingClauses = new ArrayList<>();
         for (Predicate p : s.getPredicates()) {
             TableBasedIndex tableBasedIndex = kbMap.getOrDefault(p.getPredicate(), null);
             if (tableBasedIndex == null) {
@@ -502,23 +518,24 @@ class InferenceSystem {
         Map<String, TableBasedIndex> kbMap = new HashMap<>();
         prepareKB(KB, query, kbMap);
 
-        Set<Sentence> newClauses;
+        List<Sentence> newClauses;
+        List<Sentence> newKB = new ArrayList<>();
         Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
 
         startTime = System.nanoTime();
         int round = 0;
 
         while (true) {
-            newClauses = new HashSet<>();
+            newClauses = new ArrayList<>();
             round += 1;
             System.out.println("--------------");
             System.out.println("ROUND: " + round);
             System.out.println("--------------");
 
-//            if (KB.size() > LIMIT_KB_SIZE) {
-//                System.out.println("ask | KB size exceeds the limit, return false");
-//                return false;
-//            }
+            if (newKB.size() > LIMIT_KB_SIZE) {
+                System.out.println("ask | KB size exceeds the limit, return false");
+                return false;
+            }
 
 //            if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
 //                System.out.println("ask | Time limit exceed, return false");
@@ -528,7 +545,7 @@ class InferenceSystem {
             for (int i=0; i<KB.size(); i++) {
                 Sentence a = KB.get(i);
 
-                Set<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
+                List<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
                 for (Sentence b : resolvingClauses) {
 //                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
 //                        System.out.println("ask | Time limit exceed, return false");
@@ -566,10 +583,16 @@ class InferenceSystem {
                     System.out.println("ask | id = " + b.getId() + " b = " + b.toString());
                     System.out.println("ask | resolution result = " + result.isFailure() + ", " + result.toString());
 
-                    if (isTautology(result)) {
-                        System.out.println("ask | resolution is tautology");
-                        continue;
-                    }
+//                    if (isTautology(result)) {
+//                        if (result.getPredicates().size() == 2) {
+//                            System.out.println("ask | Contradiction round: " + round);
+//                            System.out.println("ask | KB size = " + KB.size());
+//                            System.out.println("ask | time = " + getUsedTime());
+//                            return true;
+//                        }
+//                        System.out.println("ask | resolution is tautology");
+//                        continue;
+//                    }
 
                     if (!newClauses.contains(result)) {
                         newClauses.add(result);
@@ -599,6 +622,7 @@ class InferenceSystem {
                 for(Sentence s: updateClauses) {
                     addToKB(KB, s, kbMap);
                 }
+                newKB.addAll(updateClauses);
 //                KB.addAll(updateClauses);
 //                processTableBasedIndexing(updateClauses);
                 //Collections.sort(KB, sc);
@@ -738,7 +762,8 @@ class Predicate {
         if (this.predicate.equals(p2.predicate) && this.isNegative == p2.isNegative) {
             if (this.arguments.size() != p2.arguments.size()) return false;
             for(int i=0; i< this.arguments.size(); i++) {
-                if (!Utility.isVariable(this.arguments.get(i)) && !Utility.isVariable(p2.arguments.get(i))) {
+                if (!Utility.isVariable(this.arguments.get(i)) && !Utility.isVariable(p2.arguments.get(i)) &&
+                        !this.arguments.get(i).equals(p2.getArguments().get(i))) {
                     return false;
                 }
             }
