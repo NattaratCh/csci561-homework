@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input12.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
         List<Boolean> result = inferenceSystem.startInference();
         inferenceSystem.writeOutput(result, "./src/output.txt");
     }
@@ -16,7 +16,7 @@ public class Homework {
 class InferenceSystem {
     private InferenceInput inferenceInput;
     private int LIMIT_KB_SIZE = 8000;
-    private final double LIMIT_TIME_IN_SECONDS = 200.0;
+    private final double LIMIT_TIME_IN_SECONDS = 300.0;
     private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
 
@@ -55,10 +55,10 @@ class InferenceSystem {
                 Sentence s = parseSentence(sentence);
                 standardizeVariable(s, n);
                 inferenceInput.addKB(s);
-                Sentence factorSentence = factoring(s);
-                if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
-                    inferenceInput.addKB(factorSentence);
-                }
+//                Sentence factorSentence = factoring(s);
+//                if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
+//                    inferenceInput.addKB(factorSentence);
+//                }
                 line = reader.readLine();
                 n++;
             }
@@ -164,23 +164,8 @@ class InferenceSystem {
         List<Predicate> predicateList = new ArrayList<>(predicates);
 
         Sentence sentence = new Sentence(predicateList);
-        //removeTautology(sentence);
         sentence.sortPredicates();
         return sentence;
-    }
-
-    public void removeTautology(Sentence s) {
-        List<Predicate> predicates = s.getPredicates();
-        for(int i=0; i<predicates.size(); i++) {
-            Predicate p1 = predicates.get(i);
-            for(int j = i+1; j<predicates.size(); j++) {
-                Predicate p2 = predicates.get(j);
-                if (p1.isComplement(p2)) {
-                    s.removePredicate(p1);
-                    s.removePredicate(p2);
-                }
-            }
-        }
     }
 
     private void resolutionLog(Sentence s1, Sentence s2) {
@@ -304,60 +289,73 @@ class InferenceSystem {
             // { x/y, x/Constant }
             unifyVariable(arg1, arg2, unifier);
         } else if (Utility.isVariable(arg2)) {
-            // // { x/y, Constant/y }
+            // { x/y, Constant/y }
             unifyVariable(arg2, arg1, unifier);
         } else {
-            unifier.setFailure(true);
+            unifier.setFailure(false);
         }
     }
 
-    public void unifyVariable(String variable, String constant, Unifier unifier) {
+    public void unifyVariable(String variable, String x, Unifier unifier) {
         String s1 = unifier.getSubstitution(variable);
-        String s2 = unifier.getSubstitution(constant);
-        System.out.println("unifyVariable | " + variable + " " + constant + " " + s1 + " " + s2);
-        if (s1 != null && s2 != null) {
-            // both variables have substitution
-            // TODO
-            System.out.println("unifyVariable | both variables have substitution");
-            return;
-        } else if (s1 == null && s2 == null) {
-            // no substitution for this variable -> add
-            System.out.println("unifyVariable | add substitution");
-            unifier.addSubstitution(variable, constant);
-            return;
-        } else if (s1 != null) {
-            if (!Utility.isVariable(s1) && !Utility.isVariable(constant)) {
-                if (s1.equals(constant)) return;
-                // both s1 and constant are constant but not equal
-                System.out.println("unifyVariable | both s1 and constant are constant but not equal");
-                unifier.setFailure(true);
-                return;
-            } else if (!Utility.isVariable(s1) && Utility.isVariable(constant)) {
-                System.out.println("unifyVariable | add Substitution21");
-                // variable = x, s1 = John, constant = y
-                // { x/y, x/John } => { y/John }
-                unifier.addSubstitution(constant, s1);
-                return;
-            } else if (Utility.isVariable(s1) && !Utility.isVariable(constant)) {
-                System.out.println("unifyVariable | add Substitution2");
-                // variable = x, s1 = y, constant = Joe
-                // { x/y, x/John } => { y/John }
-                unifier.addSubstitution(s1, constant);
-                return;
-            } else {
-                System.out.println("both s1 and constant are variables");
-                // both s1 and constant are variables
-                // variable = x, s1 = y, constant = z
-                // { x/y, x/z } => { y/z }
-                unifier.addSubstitution(s1, constant);
-                return;
-            }
+        String s2 = unifier.getSubstitution(x);
+
+        if (s1 != null) {
+            unifyArgument(s1, x, unifier);
         } else if (s2 != null) {
-            // constant is also variable and its substitution exists
-            // recursive substitution
             unifyArgument(variable, s2, unifier);
+        } else {
+            unifier.addSubstitution(variable, x);
         }
     }
+
+//    public void unifyVariable(String variable, String constant, Unifier unifier) {
+//        String s1 = unifier.getSubstitution(variable);
+//        String s2 = unifier.getSubstitution(constant);
+//        System.out.println("unifyVariable | " + variable + " " + constant + " " + s1 + " " + s2);
+//        if (s1 != null && s2 != null) {
+//            // both variables have substitution
+//            // TODO
+//            System.out.println("unifyVariable | both variables have substitution");
+//            return;
+//        } else if (s1 == null && s2 == null) {
+//            // no substitution for this variable -> add
+//            System.out.println("unifyVariable | add substitution");
+//            unifier.addSubstitution(variable, constant);
+//            return;
+//        } else if (s1 != null) {
+//            if (!Utility.isVariable(s1) && !Utility.isVariable(constant)) {
+//                if (s1.equals(constant)) return;
+//                // both s1 and constant are constant but not equal
+//                System.out.println("unifyVariable | both s1 and constant are constant but not equal");
+//                unifier.setFailure(true);
+//                return;
+//            } else if (!Utility.isVariable(s1) && Utility.isVariable(constant)) {
+//                System.out.println("unifyVariable | add Substitution21");
+//                // variable = x, s1 = John, constant = y
+//                // { x/y, x/John } => { y/John }
+//                unifier.addSubstitution(constant, s1);
+//                return;
+//            } else if (Utility.isVariable(s1) && !Utility.isVariable(constant)) {
+//                System.out.println("unifyVariable | add Substitution2");
+//                // variable = x, s1 = y, constant = Joe
+//                // { x/y, x/John } => { y/John }
+//                unifier.addSubstitution(s1, constant);
+//                return;
+//            } else {
+//                System.out.println("both s1 and constant are variables");
+//                // both s1 and constant are variables
+//                // variable = x, s1 = y, constant = z
+//                // { x/y, x/z } => { y/z }
+//                unifier.addSubstitution(s1, constant);
+//                return;
+//            }
+//        } else if (s2 != null) {
+//            // constant is also variable and its substitution exists
+//            // recursive substitution
+//            unifyArgument(variable, s2, unifier);
+//        }
+//    }
 
     public boolean isTautology(Sentence s) {
         for(Predicate p1: s.getPositivePredicates()) {
@@ -425,7 +423,7 @@ class InferenceSystem {
         // e.g. P(x) v P(C) v Q(x) = P(C) v Q(C)
         // System.out.println("factoring | try factoring " + s.toString());
         List<Predicate> predicates = s.getPredicates();
-        Sentence cloneS = new Sentence(s, false);
+        Sentence cloneS = new Sentence(s, true);
         for(int i=0; i<predicates.size(); i++) {
             Predicate p1 = predicates.get(i);
             for(int j=i+1; j<predicates.size(); j++) {
@@ -547,10 +545,10 @@ class InferenceSystem {
 
                 List<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
                 for (Sentence b : resolvingClauses) {
-//                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
-//                        System.out.println("ask | Time limit exceed, return false");
-//                        return false;
-//                    }
+                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+                        System.out.println("ask | Time limit exceed, return false");
+                        return false;
+                    }
 
                     if (a.getId() == b.getId()) {
                         // Avoid resolution with itself
@@ -591,11 +589,11 @@ class InferenceSystem {
                     if (!newClauses.contains(result)) {
                         newClauses.add(result);
                         System.out.println("ask | add " + result.toString() + " to newClauses");
-                        Sentence factorSentence = factoring(result);
-                        if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
-                            newClauses.add(factorSentence);
-                            System.out.println("ask | [factoring] add " + factorSentence.toString() + " to newClauses");
-                        }
+//                        Sentence factorSentence = factoring(result);
+//                        if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
+//                            newClauses.add(factorSentence);
+//                            System.out.println("ask | [factoring] add " + factorSentence.toString() + " to newClauses");
+//                        }
                     }
                 }
             }
