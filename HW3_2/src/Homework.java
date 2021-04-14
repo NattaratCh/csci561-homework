@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt", "./src/output.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input12.txt", "./src/output.txt");
         inferenceSystem.startInference();
     }
 }
@@ -75,7 +75,7 @@ class InferenceSystem {
         //LIMIT_KB_SIZE = inferenceInput.getKB().size() * 1000;
         resetOutput();
         for(Sentence q: inferenceInput.getQueries()) {
-            boolean valid = ask(inferenceInput.getKB(), q);
+            boolean valid = ask(new HashSet<>(inferenceInput.getKB()), q);
             System.out.println(valid);
             writeOutput(valid);
         }
@@ -535,6 +535,7 @@ class InferenceSystem {
     }
 
     public boolean ask(Set<Sentence> KB, Sentence query) {
+        System.out.println("query : " + query.toString());
 //        List<Sentence> clauses = new ArrayList<>();
 //        clauses.addAll(KB);
 //        clauses.add(query);
@@ -1082,11 +1083,11 @@ class ResolutionResult {
 
 class InferenceInput {
     private Set<Sentence> KB;
-    private Set<Sentence> queries;
+    private List<Sentence> queries;
 
     public InferenceInput() {
         KB = new HashSet<>();
-        queries = new HashSet<>();
+        queries = new ArrayList<>();
     }
 
     public void addKB(Sentence sentence) {
@@ -1101,7 +1102,7 @@ class InferenceInput {
         return KB;
     }
 
-    public Set<Sentence> getQueries() {
+    public List<Sentence> getQueries() {
         return queries;
     }
 
