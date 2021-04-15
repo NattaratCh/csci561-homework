@@ -14,7 +14,7 @@ public class Homework {
 
 class InferenceSystem {
     private InferenceInput inferenceInput;
-    private int LIMIT_KB_SIZE = 8000;
+    private int LIMIT_KB_SIZE = 20000;
     private final double LIMIT_TIME_IN_SECONDS = 200.0;
     private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
@@ -337,8 +337,8 @@ class InferenceSystem {
         startTime = System.nanoTime();
         int round = 0;
 
-        while (true) {
-            history = new HashMap<>();
+        while (round<1) {
+            //history = new HashMap<>();
             newClauses = new HashSet<>();
             round += 1;
             System.out.println("--------------");
@@ -369,41 +369,41 @@ class InferenceSystem {
                         continue;
                     }
 
-                    boolean flagA = false;
-                    boolean flagB = false;
-                    if (history.containsKey(b)) {
-                        flagA = true;
-                        Set<Sentence> bHistory = history.get(b);
-                        if (bHistory.contains(a)) {
-                            bHistory.remove(a);
-                            history.put(b, bHistory);
-                            continue;
-                        }
-                    }
-
-                    if (history.containsKey(a)) {
-                        flagB = true;
-                        Set<Sentence> aHistory = history.get(a);
-                        if (aHistory.contains(b)) {
-                            aHistory.remove(b);
-                            history.put(a, aHistory);
-                            continue;
-                        }
-                    }
-
-                    // update history
-                    if (flagB) {
-                        history.get(a).add(b);
-                    } else {
-                        Set<Sentence> set = new HashSet<>();
-                        set.add(b);
-                        history.put(a, set);
-                    }
-
-//                    if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) {
-//                        //System.out.println("ask | Visited skip");
-//                        continue;
+//                    boolean flagA = false;
+//                    boolean flagB = false;
+//                    if (history.containsKey(b)) {
+//                        flagA = true;
+//                        Set<Sentence> bHistory = history.get(b);
+//                        if (bHistory.contains(a)) {
+//                            bHistory.remove(a);
+//                            history.put(b, bHistory);
+//                            continue;
+//                        }
 //                    }
+//
+//                    if (history.containsKey(a)) {
+//                        flagB = true;
+//                        Set<Sentence> aHistory = history.get(a);
+//                        if (aHistory.contains(b)) {
+//                            aHistory.remove(b);
+//                            history.put(a, aHistory);
+//                            continue;
+//                        }
+//                    }
+//
+//                    // update history
+//                    if (flagB) {
+//                        history.get(a).add(b);
+//                    } else {
+//                        Set<Sentence> set = new HashSet<>();
+//                        set.add(b);
+//                        history.put(a, set);
+//                    }
+
+                    if (visited.contains(new Pair<>(a, b)) || visited.contains(new Pair<>(b, a))) {
+                        //System.out.println("ask | Visited skip");
+                        continue;
+                    }
 
                     ResolutionResult result = resolution(a, b);
                     visited.add(new Pair<>(a, b));
@@ -459,8 +459,9 @@ class InferenceSystem {
                 }
                 KB.addAll(newClauses);
             }
-            writeKB(newClauses, round);
+            //writeKB(newClauses, round);
         }
+        return false;
     }
 
     private void writeKB(Set<Sentence> KB, int round) {
@@ -488,6 +489,10 @@ class InferenceSystem {
             e.printStackTrace();
         }
     }
+}
+
+class TableIndex {
+
 }
 
 class Predicate {
@@ -870,12 +875,12 @@ class InferenceInput {
     public void print() {
         System.out.println("====== Queries ======");
         for(Sentence s: queries) {
-            System.out.println(s.getId() + " " + s.toString());
+            System.out.println(s.toString());
         }
 
         System.out.println("====== KB ======");
         for(Sentence s: KB) {
-            System.out.println(s.getId() + " " + s.toString());
+            System.out.println(s.toString());
         }
     }
 }
