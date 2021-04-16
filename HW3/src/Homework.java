@@ -7,9 +7,9 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt");
-        List<Boolean> result = inferenceSystem.startInference();
-        inferenceSystem.writeOutput(result, "./src/output.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt", "./src/output.txt");
+        inferenceSystem.startInference();
+        //inferenceSystem.writeOutput(result, "./src/output.txt");
     }
 }
 
@@ -19,8 +19,10 @@ class InferenceSystem {
     private final double LIMIT_TIME_IN_SECONDS = 300.0;
     private final SentenceComparator sc = new SentenceComparator();
     private long startTime = 0;
+    private String outputFileName;
 
-    public InferenceSystem(String filename) {
+    public InferenceSystem(String filename, String outputFileName) {
+        this.outputFileName = outputFileName;
         inferenceInput = readInput(filename);
         inferenceInput.print();
     }
@@ -71,25 +73,29 @@ class InferenceSystem {
         }
     }
 
-    public List<Boolean> startInference() {
-        List<Boolean> result = new ArrayList<>();
+    public void startInference() {
         LIMIT_KB_SIZE = inferenceInput.getKB().size() * 1000;
+        resetOutput();
         for(Sentence q: inferenceInput.getQueries()) {
             List<Sentence> KB = new ArrayList<>(inferenceInput.getKB());
             boolean valid = ask(KB, q);
             System.out.println(valid);
-            result.add(valid);
+            writeOutput(valid);
         }
-        return result;
     }
 
-    public void writeOutput(List<Boolean> result, String filename) {
+    public void resetOutput() {
+        File file = new File(outputFileName);
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+
+    public void writeOutput(boolean result) {
         try {
-            FileWriter writer = new FileWriter(filename);
-            for (Boolean v: result) {
-                writer.write(String.valueOf(v).toUpperCase());
-                writer.write(System.lineSeparator());
-            }
+            FileWriter writer = new FileWriter(outputFileName, true);
+            writer.write(String.valueOf(result).toUpperCase());
+            writer.write(System.lineSeparator());
             writer.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -508,13 +514,18 @@ class InferenceSystem {
     }
 
     public boolean ask(List<Sentence> KB, Sentence query) {
+        File file = new File("./src/KB1.txt");
+        if (file.exists()) {
+            file.delete();
+        }
 //        List<Sentence> clauses = new ArrayList<>();
 //        clauses.addAll(KB);
 //        clauses.add(query);
 //        Collections.sort(clauses, sc);
 //        processTableBasedIndexing(clauses);
         Map<String, TableBasedIndex> kbMap = new HashMap<>();
-        prepareKB(KB, query, kbMap);
+        //prepareKB(KB, query, kbMap);
+        addToKB(KB, query, kbMap);
 
         List<Sentence> newClauses;
         List<Sentence> newKB = new ArrayList<>();
@@ -632,7 +643,7 @@ class InferenceSystem {
 
     private void writeKB(List<Sentence> KB, int round) {
         System.out.println("writeKB");
-        File file = new File("./src/KB.txt");
+        File file = new File("./src/KB1.txt");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
         }
