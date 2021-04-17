@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input12.txt", "./src/output.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt", "./src/output.txt");
         inferenceSystem.startInference();
     }
 }
@@ -15,11 +15,10 @@ public class Homework {
 class InferenceSystem {
     private InferenceInput inferenceInput;
     private int LIMIT_KB_SIZE = 8000;
-    private final double LIMIT_TIME_IN_SECONDS = 200.0;
+    private final double LIMIT_TIME_IN_SECONDS = 300.0;
     private long startTime = 0;
     private String outputFileName;
-    private Map<String, Set<Sentence>> positives = new HashMap<>();
-    private Map<String, Set<Sentence>> negatives = new HashMap<>();
+    private Map<String, TableIndex> tableIndexMap = new HashMap<>();
 
     public InferenceSystem(String filename, String outputFileName) {
         this.outputFileName = outputFileName;
@@ -75,10 +74,9 @@ class InferenceSystem {
     public void startInference() {
         resetOutput();
         for(Sentence q: inferenceInput.getQueries()) {
-            positives.clear();
-            negatives.clear();
+            tableIndexMap.clear();
             tell(inferenceInput.getKB());
-            boolean valid = ask(new HashSet<>(inferenceInput.getKB()), q);
+            boolean valid = ask2(new HashSet<>(inferenceInput.getKB()), q);
             System.out.println(valid);
             writeOutput(valid);
         }
@@ -256,9 +254,86 @@ class InferenceSystem {
         return result;
     }
 
-//    public Sentence resolution2(Sentence s1, Sentence s2) {
-//
-//    }
+    public Sentence resolution2(Sentence s1, Sentence s2, Predicate predicate2) {
+        //ResolutionResult resolutionResult = new ResolutionResult();
+
+        for (Predicate p1: s1.getPredicates()) {
+            final Unifier unifier = new Unifier();
+            unifier.setFailure(true);
+            if (p1.isNegative() ^ predicate2.isNegative() && p1.getPredicate().equals(predicate2.getPredicate())) {
+                unify(p1, predicate2, unifier);
+            }
+
+            if (unifier.isFailure()) {
+                continue;
+            } else {
+                Sentence cloneS1 = new Sentence(s1, false);
+                Sentence cloneS2 = new Sentence(s2, false);
+                List<Predicate> restPredicates1 = cloneS1.getPredicates().stream().filter(x -> !x.equals(p1)).collect(Collectors.toList());
+                List<Predicate> restPredicates2 = cloneS2.getPredicates().stream().filter(x -> !x.equals(predicate2)).collect(Collectors.toList());
+
+                if (restPredicates1.isEmpty() && restPredicates2.isEmpty()) {
+                    // contradiction
+//                    resolutionResult.setContradiction(true);
+//                    return resolutionResult;
+                    Sentence s = new Sentence();
+                    return s;
+                }
+
+                restPredicates1 = restPredicates1.stream().map(x -> x.substitute(unifier)).collect(Collectors.toList());
+                restPredicates2 = restPredicates2.stream().map(x -> x.substitute(unifier)).collect(Collectors.toList());
+
+                Set<Predicate> newPredicates = new HashSet<>();
+                newPredicates.addAll(restPredicates1);
+                newPredicates.addAll(restPredicates2);
+                Sentence result = new Sentence(newPredicates);
+                return result;
+            }
+        }
+        Sentence s = new Sentence();
+        s.setFailure(true);
+        return s;
+    }
+
+    public ResolutionResult resolution3(Sentence s1, Sentence s2, Predicate predicate2) {
+        ResolutionResult resolutionResult = new ResolutionResult();
+
+        for (Predicate p1: s1.getPredicates()) {
+            final Unifier unifier = new Unifier();
+            unifier.setFailure(true);
+            if (p1.isNegative() ^ predicate2.isNegative() && p1.getPredicate().equals(predicate2.getPredicate())) {
+                unify(p1, predicate2, unifier);
+            }
+
+            if (unifier.isFailure()) {
+                continue;
+            } else {
+                Sentence cloneS1 = new Sentence(s1, false);
+                Sentence cloneS2 = new Sentence(s2, false);
+                List<Predicate> restPredicates1 = cloneS1.getPredicates().stream().filter(x -> !x.equals(p1)).collect(Collectors.toList());
+                List<Predicate> restPredicates2 = cloneS2.getPredicates().stream().filter(x -> !x.equals(predicate2)).collect(Collectors.toList());
+
+                if (restPredicates1.isEmpty() && restPredicates2.isEmpty()) {
+                    // contradiction
+                    resolutionResult.setContradiction(true);
+                    return resolutionResult;
+//                    Sentence s = new Sentence();
+//                    return s;
+                }
+
+                restPredicates1 = restPredicates1.stream().map(x -> x.substitute(unifier)).collect(Collectors.toList());
+                restPredicates2 = restPredicates2.stream().map(x -> x.substitute(unifier)).collect(Collectors.toList());
+
+                Set<Predicate> newPredicates = new HashSet<>();
+                newPredicates.addAll(restPredicates1);
+                newPredicates.addAll(restPredicates2);
+                Sentence result = new Sentence(newPredicates);
+                if (isTautology(result)) continue;
+                resolutionResult.addInferredSentence(result);
+            }
+        }
+        return resolutionResult;
+    }
 
     public Sentence substitute(Sentence s, Unifier unifier) {
         for(Predicate p: s.getPredicates()) {
@@ -342,15 +417,13 @@ class InferenceSystem {
 //        KB.add(s);
 //        addNewSentenceToTableBasedIndex(s, kbMap);
         for (Predicate p: s.getPredicates()) {
-            String predicate  = p.getPredicate();
+            TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), new TableIndex());
             if (!p.isNegative()) {
-                Set<Sentence> sentences = positives.getOrDefault(predicate, new HashSet<>());
-                sentences.add(s);
-                positives.put(predicate, sentences);
+                tableIndex.addPositive(s);
+                tableIndexMap.put(p.getPredicate(), tableIndex);
             } else {
-                Set<Sentence> sentences = negatives.getOrDefault(predicate, new HashSet<>());
-                sentences.add(s);
-                negatives.put(predicate, sentences);
+                tableIndex.addNegative(s);
+                tableIndexMap.put(p.getPredicate(), tableIndex);
             }
         }
     }
@@ -383,21 +456,23 @@ class InferenceSystem {
 
     private Map<String, TableIndex> getResolvingClauses(Sentence s) {
         Map<String, TableIndex> resolvingClauses = new HashMap<>();
-        for(Predicate p: s.getPredicates()) {
-            if (p.isNegative()) {
-                if (positives.containsKey(p.getPredicate())) {
-                    TableIndex tableIndex = resolvingClauses.getOrDefault(p.getPredicate(), new TableIndex());
-                    tableIndex.addPositives(positives.get(p.getPredicate()));
-                    resolvingClauses.put(p.getPredicate(), tableIndex);
-                }
-            } else {
-                if (negatives.containsKey(p.getPredicate())) {
-                    TableIndex tableIndex = resolvingClauses.getOrDefault(p.getPredicate(), new TableIndex());
-                    tableIndex.addNegatives(negatives.get(p.getPredicate()));
-                    resolvingClauses.put(p.getPredicate(), tableIndex);
-                }
-            }
-        }
+//        for(Predicate p: s.getPredicates()) {
+//            TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), null);
+//            if (tableIndex == null) continue;
+//            if (p.isNegative()) {
+//                if (positives.containsKey(p.getPredicate())) {
+//                    TableIndex tableIndex = resolvingClauses.getOrDefault(p.getPredicate(), new TableIndex());
+//                    tableIndex.addPositives(positives.get(p.getPredicate()));
+//                    resolvingClauses.put(p.getPredicate(), tableIndex);
+//                }
+//            } else {
+//                if (negatives.containsKey(p.getPredicate())) {
+//                    TableIndex tableIndex = resolvingClauses.getOrDefault(p.getPredicate(), new TableIndex());
+//                    tableIndex.addNegatives(negatives.get(p.getPredicate()));
+//                    resolvingClauses.put(p.getPredicate(), tableIndex);
+//                }
+//            }
+//        }
         return resolvingClauses;
     }
 
@@ -414,7 +489,7 @@ class InferenceSystem {
                     // p(x) , ~p(K)
                     Unifier unifier = new Unifier();
                     unify(p1, p2, unifier);
-                    System.out.println("isTautology | " + p1 + " ## " + p2 + " unifier = " + unifier.isFailure() + ", " + unifier.toString());
+                    //System.out.println("isTautology | " + p1 + " ## " + p2 + " unifier = " + unifier.isFailure() + ", " + unifier.toString());
                     if (unifier.isEmpty() || unifier.isFailure()) {
                         continue;
                     } else {
@@ -471,9 +546,111 @@ class InferenceSystem {
         }
     }
 
+    public boolean ask2(Set<Sentence> KB, Sentence query) {
+        File file = new File("./src/KB.txt");
+        if (file.exists()) {
+            file.delete();
+        }
+        //Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
+        Set<Sentence> newKB = new HashSet<>();
+        Set<Sentence> newClauses = new HashSet<>();
+        newClauses.add(query);
+        tell(newClauses);
+
+        int round = 0;
+        startTime = System.nanoTime();
+
+        Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
+
+        while (true) {
+            round += 1;
+            System.out.println("--------------");
+            System.out.println("ROUND: " + round);
+            System.out.println("--------------");
+            newKB.clear();
+
+            for(Sentence q: newClauses) {
+                if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+                    System.out.println("ask | Time limit exceed, return false");
+                    System.out.println("ask | time = " + getUsedTime());
+                    return false;
+                }
+
+                for(Predicate p: q.getPredicates()) {
+                    TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), null);
+                    if (tableIndex == null) continue;
+                    Set<Sentence> resolvingSentences = p.isNegative() ? tableIndex.getPositives() : tableIndex.getNegatives();
+                    if (resolvingSentences == null || resolvingSentences.isEmpty()) continue;
+                    System.out.println("ask | resolvingSentences size = " + resolvingSentences.size());
+
+                    for (Sentence s : resolvingSentences) {
+                        if (q.getId() == s.getId()) continue;
+
+                        if (visited.contains(new Pair<>(q, s)) || visited.contains(new Pair<>(s, q))) {
+                            //System.out.println("ask | Visited skip");
+                            continue;
+                        }
+
+                        ResolutionResult resolvent = resolution3(s, q, p);
+                        visited.add(new Pair<>(q, s));
+                        visited.add(new Pair<>(s, q));
+
+                        if (resolvent.isContradiction()) {
+                            System.out.println("ask | Contradiction ");
+                            System.out.println("ask | a = " + s.toString());
+                            System.out.println("ask | b = " + q.toString());
+                            System.out.println("ask | time = " + getUsedTime());
+                            return true;
+                        }
+
+                        if (resolvent.getInferredSentences().isEmpty()) continue;
+
+                        newKB.addAll(resolvent.getInferredSentences());
+//                        if (visited.contains(new Pair<>(s, q)) || visited.contains(new Pair<>(q, s))) {
+//                            //System.out.println("ask | Visited skip");
+//                            continue;
+//                        }
+
+//                        ResolutionResult resolutionResult = resolution2(s, q, p);
+//                        if (resolutionResult.isContradiction()) {
+//                            System.out.println("ask | Contradiction ");
+//                            System.out.println("ask | a = " + s.toString());
+//                            System.out.println("ask | b = " + q.toString());
+//                            return true;
+//                        }
+//
+////                        visited.add(new Pair<>(q, s));
+////                        visited.add(new Pair<>(s, q));
+//
+//                        if (resolutionResult.getInferredSentences().isEmpty()) {
+//                            continue;
+//                        }
+//
+//                        newKB.addAll(resolutionResult.getInferredSentences());
+                    }
+                }
+            }
+
+            if (KB.containsAll(newKB)) {
+                System.out.println("ask | newClauses is subset of KB, return false");
+                System.out.println("ask | time = " + getUsedTime());
+                return false;
+            }
+            // update only new clauses to KB
+            newClauses = difference(KB, newKB);
+            System.out.println("ask | updateClauses size = " + newClauses.size());
+            tell(newClauses);
+            KB.addAll(newClauses);
+            writeKB(newClauses, round);
+        }
+    }
 
     public boolean ask1(Set<Sentence> KB, Sentence query) {
-        Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
+        File file = new File("./src/KB.txt");
+        if (file.exists()) {
+            file.delete();
+        }
+        //Set<Pair<Sentence, Sentence>> visited = new HashSet<>();
         Set<Sentence> newKB = new HashSet<>();
         Set<Sentence> newClauses = new HashSet<>();
         newClauses.add(query);
@@ -489,7 +666,13 @@ class InferenceSystem {
             System.out.println("--------------");
             newKB.clear();
 
+
             for(Sentence q: newClauses) {
+//                if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                    System.out.println("ask | Time limit exceed, return false");
+//                    return false;
+//                }
+
                 Map<String, TableIndex> resolvingClauses = getResolvingClauses(q);
                 //System.out.println("ask | resolving clauses size: "+ resolvingClauses.size());
 
@@ -507,13 +690,52 @@ class InferenceSystem {
                     for (Sentence s : resolvingSentences) {
                         if (q.equals(s)) continue;
 
-                        if (visited.contains(new Pair<>(s, q)) || visited.contains(new Pair<>(q, s))) {
-                            //System.out.println("ask | Visited skip");
-                            continue;
+                        Sentence resolvent = resolution2(s, q, p);
+                        if (resolvent.isFailure()) continue;
+                        if (!resolvent.isFailure() && resolvent.isEmpty()) {
+                            System.out.println("ask | Contradiction ");
+                            System.out.println("ask | a = " + s.toString());
+                            System.out.println("ask | b = " + q.toString());
+                            System.out.println("ask | time = " + getUsedTime());
+                            return true;
                         }
+
+                        newKB.add(resolvent);
+//                        if (visited.contains(new Pair<>(s, q)) || visited.contains(new Pair<>(q, s))) {
+//                            //System.out.println("ask | Visited skip");
+//                            continue;
+//                        }
+
+//                        ResolutionResult resolutionResult = resolution2(s, q, p);
+//                        if (resolutionResult.isContradiction()) {
+//                            System.out.println("ask | Contradiction ");
+//                            System.out.println("ask | a = " + s.toString());
+//                            System.out.println("ask | b = " + q.toString());
+//                            return true;
+//                        }
+//
+////                        visited.add(new Pair<>(q, s));
+////                        visited.add(new Pair<>(s, q));
+//
+//                        if (resolutionResult.getInferredSentences().isEmpty()) {
+//                            continue;
+//                        }
+//
+//                        newKB.addAll(resolutionResult.getInferredSentences());
                     }
                 }
             }
+
+            if (KB.containsAll(newKB)) {
+                System.out.println("ask | newClauses is subset of KB, return false");
+                return false;
+            }
+            // update only new clauses to KB
+            newClauses = difference(KB, newKB);
+            System.out.println("ask | updateClauses size = " + newClauses.size());
+            tell(newClauses);
+            KB.addAll(newClauses);
+            writeKB(newClauses, round);
         }
     }
 
@@ -651,6 +873,7 @@ class InferenceSystem {
             newClauses = difference(KB, newKB);
             System.out.println("ask | updateClauses size = " + newClauses.size());
             tell(newClauses);
+            KB.addAll(newClauses);
 //            writeKB(newClauses, round);
         }
 
@@ -792,6 +1015,7 @@ class InferenceSystem {
 
     private void writeKB(Set<Sentence> KB, int round) {
         List<Sentence> list = new ArrayList<>(KB);
+        Collections.sort(list, new SentenceComparator());
         System.out.println("writeKB");
         File file = new File("./src/KB.txt");
         if (!file.exists()) {
@@ -807,7 +1031,7 @@ class InferenceSystem {
             br.write("new clauses size: " + KB.size());
             br.write(System.lineSeparator());
             for(Sentence s: list) {
-                br.write(s.toString());
+                br.write(s.getId() + " " + s.toString());
                 br.write(System.lineSeparator());
             }
             br.close();
@@ -1051,6 +1275,8 @@ class Sentence {
     public String toString() {
         //return sentenceString;
         sb = new StringBuilder();
+        List<Predicate> predicates = new ArrayList<>(this.predicates);
+        Collections.sort(predicates, pc);
         int i = 0;
         for (Predicate p: predicates) {
             sb.append(p.toString());
@@ -1310,6 +1536,14 @@ class TableIndex {
     private Set<Sentence> getOrCreateNegatives() {
         if (negatives == null) negatives = new HashSet<>();
         return negatives;
+    }
+
+    public void addPositive(Sentence s) {
+        getOrCreatePositives().add(s);
+    }
+
+    public void addNegative(Sentence s) {
+        getOrCreateNegatives().add(s);
     }
 
     public void addPositives(Set<Sentence> sentences) {
