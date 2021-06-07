@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
  */
 public class Homework {
     public static void main(String[] args) {
-        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input4.txt", "./src/output.txt");
+        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases/input12.txt", "./src/output.txt");
         inferenceSystem.startInference();
     }
 }
@@ -15,7 +15,8 @@ public class Homework {
 class InferenceSystem {
     private InferenceInput inferenceInput;
     private int LIMIT_KB_SIZE = 8000;
-    private final double LIMIT_TIME_IN_SECONDS = 300.0;
+    private final double LIMIT_TIME_IN_SECONDS = 50;
+    private final int DEPTH_LIMIT = 20;
     private long startTime = 0;
     private String outputFileName;
     private Map<String, TableIndex> tableIndexMap = new HashMap<>();
@@ -53,7 +54,7 @@ class InferenceSystem {
             while (line != null){
                 String sentence = line.trim();
                 Sentence s = parseSentence(sentence);
-                standardizeVariable(s, n);
+                //standardizeVariable(s, n);
                 inferenceInput.addKB(s);
 //                Sentence factorSentence = factoring(s);
 //                if (!factorSentence.isFailure() && !isTautology(factorSentence)) {
@@ -75,8 +76,12 @@ class InferenceSystem {
         resetOutput();
         for(Sentence q: inferenceInput.getQueries()) {
             tableIndexMap.clear();
-            tell(inferenceInput.getKB());
+            Set<Sentence> cloneKB = new HashSet<>(inferenceInput.getKB());
+            cloneKB.add(q);
+            startTime = System.nanoTime();
+            tell(cloneKB);
             boolean valid = ask2(new HashSet<>(inferenceInput.getKB()), q);
+            //boolean valid = ask2(cloneKB, q);
             System.out.println(valid);
             writeOutput(valid);
         }
@@ -330,6 +335,7 @@ class InferenceSystem {
                 Sentence result = new Sentence(newPredicates);
                 if (isTautology(result)) continue;
                 resolutionResult.addInferredSentence(result);
+                //System.out.println("resolution | result = " + result);
             }
         }
         return resolutionResult;
@@ -416,6 +422,19 @@ class InferenceSystem {
     private void addToKB(Sentence s) {
 //        KB.add(s);
 //        addNewSentenceToTableBasedIndex(s, kbMap);
+        for (Predicate p: s.getPredicates()) {
+            TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), new TableIndex());
+            if (!p.isNegative()) {
+                tableIndex.addPositive(s);
+                tableIndexMap.put(p.getPredicate(), tableIndex);
+            } else {
+                tableIndex.addNegative(s);
+                tableIndexMap.put(p.getPredicate(), tableIndex);
+            }
+        }
+    }
+
+    private void addToKB(Sentence s, Map<String, TableIndex> tableIndexMap) {
         for (Predicate p: s.getPredicates()) {
             TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), new TableIndex());
             if (!p.isNegative()) {
@@ -546,6 +565,61 @@ class InferenceSystem {
         }
     }
 
+    public boolean ask3(Set<Sentence> KB, Sentence query, Map<String, TableIndex> map, Set<Pair<Sentence, Sentence>> visited, int depth) {
+        if (depth >= DEPTH_LIMIT) {
+            System.out.println("ask | time = " + getUsedTime());
+            return false;
+        }
+
+        Map<String, TableIndex> cloneMap = new HashMap(map);
+        for(Predicate p: query.getPredicates()) {
+            TableIndex tableIndex = cloneMap.getOrDefault(p.getPredicate(), null);
+            if (tableIndex == null) continue;
+            Set<Sentence> resolvingSentences = p.isNegative() ? tableIndex.getPositives() : tableIndex.getNegatives();
+            if (resolvingSentences == null || resolvingSentences.isEmpty()) continue;
+            System.out.println("ask | resolvingSentences size = " + resolvingSentences.size());
+
+            for(Sentence s: resolvingSentences) {
+                if (query.getId() == s.getId()) continue;
+
+//                if (visited.contains(new Pair<>(query, s)) || visited.contains(new Pair<>(s, query))) {
+//                    //System.out.println("ask | Visited skip");
+//                    continue;
+//                }
+                ResolutionResult resolvent = resolution3(s, query, p);
+                visited.add(new Pair<>(query, s));
+                visited.add(new Pair<>(s, query));
+
+                if (resolvent.isContradiction()) {
+                    System.out.println("ask | Contradiction ");
+                    System.out.println("ask | a = " + s.toString());
+                    System.out.println("ask | b = " + query.toString());
+                    System.out.println("ask | time = " + getUsedTime());
+                    return true;
+                }
+
+                if (resolvent.getInferredSentences().isEmpty()) continue;
+
+                if (KB.containsAll(resolvent.getInferredSentences())) {
+                    continue;
+                };
+
+                Set<Sentence> newClauses = difference(KB, resolvent.getInferredSentences());
+                //writeKB(newClauses, 1);
+                KB.addAll(newClauses);
+                for (Sentence newSentence: newClauses) {
+                    System.out.println("new sentence: " + newSentence.toString());
+                    //Set<Sentence> cloneKB = new HashSet<>(KB);
+                   // addToKB(newSentence);
+                    if (ask3(KB, newSentence, map, new HashSet<>(visited), depth+1)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public boolean ask2(Set<Sentence> KB, Sentence query) {
         File file = new File("./src/KB.txt");
         if (file.exists()) {
@@ -569,14 +643,22 @@ class InferenceSystem {
             System.out.println("--------------");
             newKB.clear();
 
+//            if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                System.out.println("ask | Time limit exceed, return false");
+//                System.out.println("ask | time = " + getUsedTime());
+//                return false;
+//            }
             for(Sentence q: newClauses) {
-                if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
-                    System.out.println("ask | Time limit exceed, return false");
-                    System.out.println("ask | time = " + getUsedTime());
-                    return false;
-                }
+//                if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                    System.out.println("ask | Time limit exceed, return false");
+//                    System.out.println("ask | time = " + getUsedTime());
+//                    return false;
+//                }
+
+                System.out.println("ask | newClause : " + q.getId() + " " +q.toString() );
 
                 for(Predicate p: q.getPredicates()) {
+                    System.out.println("ask | newClause predicate: " + p.toString());
                     TableIndex tableIndex = tableIndexMap.getOrDefault(p.getPredicate(), null);
                     if (tableIndex == null) continue;
                     Set<Sentence> resolvingSentences = p.isNegative() ? tableIndex.getPositives() : tableIndex.getNegatives();
@@ -584,13 +666,16 @@ class InferenceSystem {
                     System.out.println("ask | resolvingSentences size = " + resolvingSentences.size());
 
                     for (Sentence s : resolvingSentences) {
-                        if (q.getId() == s.getId()) continue;
+//                        if (q.getId() == s.getId()) continue;
+//
+//                        if (visited.contains(new Pair<>(q, s)) || visited.contains(new Pair<>(s, q))) {
+//                            //System.out.println("ask | Visited skip");
+//                            continue;
+//                        }
 
-                        if (visited.contains(new Pair<>(q, s)) || visited.contains(new Pair<>(s, q))) {
-                            //System.out.println("ask | Visited skip");
-                            continue;
-                        }
-
+//                        System.out.println("ask | s = " + s.toString());
+//                        System.out.println("ask | q = " + q.toString());
+//                        System.out.println("ask | p = " + p.toString());
                         ResolutionResult resolvent = resolution3(s, q, p);
                         visited.add(new Pair<>(q, s));
                         visited.add(new Pair<>(s, q));
@@ -638,11 +723,17 @@ class InferenceSystem {
             }
             // update only new clauses to KB
             newClauses = difference(KB, newKB);
+//            System.out.println("@@@@@@@@@");
+//            for (Sentence c: newClauses) {
+//                System.out.println("ask | newClause = " + c.toString());
+//            }
+//            System.out.println("@@@@@@@@@");
             System.out.println("ask | updateClauses size = " + newClauses.size());
             tell(newClauses);
             KB.addAll(newClauses);
             writeKB(newClauses, round);
         }
+        //return false;
     }
 
     public boolean ask1(Set<Sentence> KB, Sentence query) {

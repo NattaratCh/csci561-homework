@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -7,11 +8,39 @@ import java.util.List;
 public class HomeworkTest {
     public static void main(String[] args) {
         for(int i=1; i<=50; i++) {
-            InferenceSystem inferenceSystem = new InferenceSystem("./test-cases2/input_" +i+ ".txt");
-            List<Boolean> result = inferenceSystem.startInference();
-            inferenceSystem.writeOutput(result, "./output2/output_" +i+ ".txt");
+            InferenceSystem inferenceSystem = new InferenceSystem("./test-cases2/input_" +i+ ".txt", "./output2/output_" +i+ ".txt");
+            inferenceSystem.startInference();
             compareOutput(i);
         }
+
+//        InferenceSystem inferenceSystem = new InferenceSystem("./test-cases2/input_23.txt", "./test-cases2/output_23.txt");
+//        Sentence s1 = inferenceSystem.parseSentence("Knows(John,v) & ~Knows(John,v) => Hates(John,v)");
+//        Sentence s2 = inferenceSystem.parseSentence("~Knows(John,v) => Hates(John,v)");
+//        Sentence s3 = inferenceSystem.parseSentence("~Knows(John,v1) => Hates(John,v1)");
+//        Sentence s4 = inferenceSystem.parseSentence("~Knows(John,v1) & ~Knows(John,v2) => Hates(John,v1)");
+//        Sentence s5 = inferenceSystem.parseSentence("Contact(Alice,y4) & Contact(x3,y3) & Contact(x4,y4) & Contact(y4,x3) & Contact(y4,y2) => Q(x)");
+//        Sentence s6 = inferenceSystem.parseSentence("Sick(x,a) & ~Sick(y,a) & ~Contagious(a) & Contact(x,y) => ~Sick(y,a)");
+//
+//        System.out.println(s1.toString());
+//
+//        List<Sentence> KB = new ArrayList<>();
+//        KB.add(s1);
+//        KB.add(s2);
+//
+//        List<Sentence> newClauses = new ArrayList<>();
+//        newClauses.add(s3);
+////
+//        System.out.println(KB.containsAll(newClauses));
+//        System.out.println(s2.equals(s3));
+//
+//        Sentence f = inferenceSystem.factoring(s4);
+//        System.out.println(f.toString());
+//
+//        Sentence f1 = inferenceSystem.factoring(s5);
+//        System.out.println(f1.toString());
+//
+//        Sentence f2 = inferenceSystem.factoring(s6);
+//        System.out.println(f2.toString());
     }
 
     private static void compareOutput(int caseNumber) {

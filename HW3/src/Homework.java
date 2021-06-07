@@ -541,10 +541,10 @@ class InferenceSystem {
             System.out.println("ROUND: " + round);
             System.out.println("--------------");
 
-            if (newKB.size() > LIMIT_KB_SIZE) {
-                System.out.println("ask | KB size exceeds the limit, return false");
-                return false;
-            }
+//            if (newKB.size() > LIMIT_KB_SIZE) {
+//                System.out.println("ask | KB size exceeds the limit, return false");
+//                return false;
+//            }
 
 //            if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
 //                System.out.println("ask | Time limit exceed, return false");
@@ -556,10 +556,10 @@ class InferenceSystem {
 
                 List<Sentence> resolvingClauses = getResolvingClauses(a, kbMap);
                 for (Sentence b : resolvingClauses) {
-                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
-                        System.out.println("ask | Time limit exceed, return false");
-                        return false;
-                    }
+//                    if (getUsedTime() > LIMIT_TIME_IN_SECONDS) {
+//                        System.out.println("ask | Time limit exceed, return false");
+//                        return false;
+//                    }
 
                     if (a.getId() == b.getId()) {
                         // Avoid resolution with itself
